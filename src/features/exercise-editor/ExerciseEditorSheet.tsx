@@ -7,8 +7,6 @@ import clsx from "clsx";
 import { Sparkles, X } from "lucide-react";
 import type {
   ExerciseLibraryItem,
-  ExerciseMode,
-  LoadMode,
   WorkoutEntry,
 } from "@/lib/workout-types";
 import { findExerciseSuggestions } from "@/lib/workout-types";
@@ -150,7 +148,7 @@ export function ExerciseEditorSheet({
                 <div className="space-y-0 px-4 pb-6">
 
                   {/* Name */}
-                  <FormSection label="Nombre">
+                  <div className="mt-3">
                     <input
                       value={draft.exerciseName}
                       onChange={(e) =>
@@ -159,197 +157,216 @@ export function ExerciseEditorSheet({
                         )
                       }
                       placeholder="Face pull, Sentadilla..."
-                      className="ios-input text-[16px]"
+                      className="ios-input text-[17px] font-medium"
                       autoFocus
                     />
-                  </FormSection>
+                  </div>
 
-                  {/* Mode selectors */}
-                  <FormSection label="Ejecución">
-                    <SegmentControl
-                      value={draft.exerciseMode}
-                      options={[
-                        { value: "reps", label: "Repeticiones" },
-                        { value: "isometric", label: "Tiempo" },
-                      ]}
-                      onChange={(v) =>
-                        setDraft((d) =>
-                          d ? { ...d, exerciseMode: v as ExerciseMode } : d,
-                        )
-                      }
-                    />
-                  </FormSection>
-
-                  <FormSection label="Tipo de carga">
-                    <SegmentControl
-                      value={draft.loadMode}
-                      options={[
-                        { value: "bodyweight", label: "Libre" },
-                        { value: "weight", label: "Peso" },
-                        { value: "band", label: "Banda" },
-                        { value: "mixed", label: "Mixto" },
-                      ]}
-                      onChange={(v) =>
-                        setDraft((d) =>
-                          d ? { ...d, loadMode: v as LoadMode } : d,
-                        )
-                      }
-                    />
-                  </FormSection>
-
-                  {/* Load defaults */}
-                  {(showWeightDefaults || showBandDefaults) && (
-                    <FormSection label="Carga por defecto">
-                      <div className="grid grid-cols-2 gap-2">
-                        {showWeightDefaults && (
-                          <InlineField
-                            label="Peso base"
-                            value={draft.defaultWeightKg}
-                            inputMode="decimal"
-                            placeholder="kg"
-                            onChange={(v) =>
-                              setDraft((d) =>
-                                d ? { ...d, defaultWeightKg: v } : d,
-                              )
-                            }
-                          />
-                        )}
-                        {showBandDefaults && (
-                          <>
-                            <InlineField
-                              label="Color"
-                              value={draft.defaultBandColor}
-                              placeholder="Roja"
-                              onChange={(v) =>
-                                setDraft((d) =>
-                                  d ? { ...d, defaultBandColor: v } : d,
-                                )
-                              }
-                            />
-                            <InlineField
-                              label="Resistencia"
-                              value={draft.defaultBandResistance}
-                              placeholder="Media / 35 lb"
-                              onChange={(v) =>
-                                setDraft((d) =>
-                                  d ? { ...d, defaultBandResistance: v } : d,
-                                )
-                              }
-                            />
-                          </>
-                        )}
+                  {/* Settings card */}
+                  <div className="mt-4 overflow-hidden rounded-[16px] bg-[var(--background-secondary)] divide-y divide-[var(--separator)]">
+                    {/* Ejecución */}
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-[15px] text-[var(--foreground)]">Ejecución</span>
+                      <div className="flex gap-1.5">
+                        <PillButton
+                          active={draft.exerciseMode === "reps"}
+                          onClick={() => setDraft((d) => d ? { ...d, exerciseMode: "reps" } : d)}
+                        >
+                          Repeticiones
+                        </PillButton>
+                        <PillButton
+                          active={draft.exerciseMode === "isometric"}
+                          onClick={() => setDraft((d) => d ? { ...d, exerciseMode: "isometric" } : d)}
+                        >
+                          Tiempo
+                        </PillButton>
                       </div>
-                    </FormSection>
-                  )}
+                    </div>
 
-                  {/* Unilateral toggle */}
-                  <div className="mt-3 flex items-center justify-between rounded-[14px] bg-[var(--background)] px-4 py-3.5">
-                    <p className="text-[15px] font-medium">Unilateral</p>
-                    {/* iOS-style switch: thumb uses `left` for reliable positioning */}
-                    <div
-                      role="switch"
-                      aria-checked={draft.unilateral}
-                      tabIndex={0}
-                      onClick={() =>
-                        setDraft((d) =>
-                          d ? { ...d, unilateral: !d.unilateral } : d,
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === " " || e.key === "Enter")
+                    {/* Tipo de carga */}
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-[15px] text-[var(--foreground)]">Carga</span>
+                      <div className="flex gap-1.5">
+                        {(
+                          [
+                            { value: "bodyweight", label: "Libre" },
+                            { value: "weight", label: "Peso" },
+                            { value: "band", label: "Banda" },
+                            { value: "mixed", label: "Mixto" },
+                          ] as const
+                        ).map((opt) => (
+                          <PillButton
+                            key={opt.value}
+                            active={draft.loadMode === opt.value}
+                            onClick={() => setDraft((d) => d ? { ...d, loadMode: opt.value } : d)}
+                          >
+                            {opt.label}
+                          </PillButton>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Unilateral */}
+                    <div className="flex items-center justify-between px-4 py-3.5">
+                      <span className="text-[15px] text-[var(--foreground)]">Unilateral</span>
+                      <div
+                        role="switch"
+                        aria-checked={draft.unilateral}
+                        tabIndex={0}
+                        onClick={() =>
                           setDraft((d) =>
                             d ? { ...d, unilateral: !d.unilateral } : d,
-                          );
-                      }}
-                      className={clsx(
-                        "relative h-[31px] w-[51px] shrink-0 cursor-pointer select-none rounded-full outline-none transition-colors duration-200",
-                        draft.unilateral
-                          ? "bg-[var(--accent)]"
-                          : "bg-[rgba(120,120,128,0.32)]",
-                      )}
-                    >
-                      <span
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === " " || e.key === "Enter")
+                            setDraft((d) =>
+                              d ? { ...d, unilateral: !d.unilateral } : d,
+                            );
+                        }}
                         className={clsx(
-                          "absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.25)] transition-[left] duration-200",
-                          draft.unilateral ? "left-[22px]" : "left-[2px]",
+                          "relative h-[31px] w-[51px] shrink-0 cursor-pointer select-none rounded-full outline-none transition-colors duration-200",
+                          draft.unilateral
+                            ? "bg-[var(--accent)]"
+                            : "bg-[rgba(120,120,128,0.32)]",
                         )}
-                      />
+                      >
+                        <span
+                          className={clsx(
+                            "absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.25)] transition-[left] duration-200",
+                            draft.unilateral ? "left-[22px]" : "left-[2px]",
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Sets */}
-                  <FormSection label="Sets">
-                    <div className="space-y-2">
-                      {draft.sets.map((set, index) => (
-                        <div
-                          key={set.id}
-                          className="rounded-[14px] bg-[var(--background)] px-3.5 py-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] font-semibold text-[var(--muted)]">
-                              Set {index + 1}
-                            </span>
-                            {draft.sets.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDraft((d) =>
-                                    d
-                                      ? {
-                                          ...d,
-                                          sets: d.sets.filter(
-                                            (s) => s.id !== set.id,
-                                          ),
-                                        }
-                                      : d,
-                                  )
-                                }
-                                className="text-[13px] font-medium text-[var(--danger)]"
-                              >
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
+                  {/* Load defaults */}
+                  {(showWeightDefaults || showBandDefaults) && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {showWeightDefaults && (
+                        <InlineField
+                          label="Peso base"
+                          value={draft.defaultWeightKg}
+                          inputMode="decimal"
+                          placeholder="kg"
+                          onChange={(v) =>
+                            setDraft((d) =>
+                              d ? { ...d, defaultWeightKg: v } : d,
+                            )
+                          }
+                        />
+                      )}
+                      {showBandDefaults && (
+                        <>
+                          <InlineField
+                            label="Color"
+                            value={draft.defaultBandColor}
+                            placeholder="Roja"
+                            onChange={(v) =>
+                              setDraft((d) =>
+                                d ? { ...d, defaultBandColor: v } : d,
+                              )
+                            }
+                          />
+                          <InlineField
+                            label="Resistencia"
+                            value={draft.defaultBandResistance}
+                            placeholder="Media / 35 lb"
+                            onChange={(v) =>
+                              setDraft((d) =>
+                                d ? { ...d, defaultBandResistance: v } : d,
+                              )
+                            }
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
 
-                          <div className="mt-2 grid grid-cols-2 gap-2">
+                  {/* Sets */}
+                  <div className="mt-4">
+                    <p className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                      Sets
+                    </p>
+                    <div className="overflow-hidden rounded-[16px] bg-[var(--background-secondary)]">
+                      {/* Column headers */}
+                      <div className={clsx(
+                        "grid gap-2 border-b border-[var(--separator)] px-4 py-2",
+                        draft.exerciseMode === "isometric"
+                          ? showWeightDefaults ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]"
+                          : showWeightDefaults ? "grid-cols-[2rem_1fr_1fr]" : showBandDefaults ? "grid-cols-[2rem_1fr_1fr_1fr]" : "grid-cols-[2rem_1fr]"
+                      )}>
+                        <span />
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                          {draft.exerciseMode === "isometric" ? "Segundos" : "Reps"}
+                        </span>
+                        {showWeightDefaults && (
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Kg</span>
+                        )}
+                        {showBandDefaults && (
+                          <>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Color</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Resist.</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Set rows */}
+                      <div className="divide-y divide-[var(--separator)]">
+                        {draft.sets.map((set, index) => (
+                          <div
+                            key={set.id}
+                            className={clsx(
+                              "grid items-center gap-2 px-4 py-2.5",
+                              draft.exerciseMode === "isometric"
+                                ? showWeightDefaults ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]"
+                                : showWeightDefaults ? "grid-cols-[2rem_1fr_1fr]" : showBandDefaults ? "grid-cols-[2rem_1fr_1fr_1fr]" : "grid-cols-[2rem_1fr]"
+                            )}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                draft.sets.length > 1 &&
+                                setDraft((d) =>
+                                  d
+                                    ? { ...d, sets: d.sets.filter((s) => s.id !== set.id) }
+                                    : d,
+                                )
+                              }
+                              className={clsx(
+                                "flex size-6 items-center justify-center rounded-full text-[12px] font-semibold transition-colors",
+                                draft.sets.length > 1
+                                  ? "bg-[rgba(255,59,48,0.12)] text-[var(--danger)]"
+                                  : "bg-[var(--fill-tertiary)] text-[var(--muted)] cursor-default",
+                              )}
+                              aria-label={`Eliminar set ${index + 1}`}
+                            >
+                              {index + 1}
+                            </button>
+
                             {draft.exerciseMode === "isometric" ? (
-                              <InlineField
-                                label="Segundos"
+                              <SetInput
                                 value={set.durationSeconds}
                                 inputMode="numeric"
                                 placeholder="30"
                                 onChange={(v) =>
                                   setDraft((d) =>
                                     d
-                                      ? {
-                                          ...d,
-                                          sets: d.sets.map((s) =>
-                                            s.id === set.id
-                                              ? { ...s, durationSeconds: v }
-                                              : s,
-                                          ),
-                                        }
+                                      ? { ...d, sets: d.sets.map((s) => s.id === set.id ? { ...s, durationSeconds: v } : s) }
                                       : d,
                                   )
                                 }
                               />
                             ) : (
-                              <InlineField
-                                label="Reps"
+                              <SetInput
                                 value={set.reps}
                                 inputMode="numeric"
                                 placeholder="15"
                                 onChange={(v) =>
                                   setDraft((d) =>
                                     d
-                                      ? {
-                                          ...d,
-                                          sets: d.sets.map((s) =>
-                                            s.id === set.id
-                                              ? { ...s, reps: v }
-                                              : s,
-                                          ),
-                                        }
+                                      ? { ...d, sets: d.sets.map((s) => s.id === set.id ? { ...s, reps: v } : s) }
                                       : d,
                                   )
                                 }
@@ -357,22 +374,14 @@ export function ExerciseEditorSheet({
                             )}
 
                             {showWeightDefaults && (
-                              <InlineField
-                                label="Kg"
+                              <SetInput
                                 value={set.weightKg}
                                 inputMode="decimal"
                                 placeholder={draft.defaultWeightKg || "—"}
                                 onChange={(v) =>
                                   setDraft((d) =>
                                     d
-                                      ? {
-                                          ...d,
-                                          sets: d.sets.map((s) =>
-                                            s.id === set.id
-                                              ? { ...s, weightKg: v }
-                                              : s,
-                                          ),
-                                        }
+                                      ? { ...d, sets: d.sets.map((s) => s.id === set.id ? { ...s, weightKg: v } : s) }
                                       : d,
                                   )
                                 }
@@ -381,42 +390,24 @@ export function ExerciseEditorSheet({
 
                             {showBandDefaults && (
                               <>
-                                <InlineField
-                                  label="Color"
+                                <SetInput
                                   value={set.bandColor}
                                   placeholder={draft.defaultBandColor || "—"}
                                   onChange={(v) =>
                                     setDraft((d) =>
                                       d
-                                        ? {
-                                            ...d,
-                                            sets: d.sets.map((s) =>
-                                              s.id === set.id
-                                                ? { ...s, bandColor: v }
-                                                : s,
-                                            ),
-                                          }
+                                        ? { ...d, sets: d.sets.map((s) => s.id === set.id ? { ...s, bandColor: v } : s) }
                                         : d,
                                     )
                                   }
                                 />
-                                <InlineField
-                                  label="Resistencia"
+                                <SetInput
                                   value={set.bandResistance}
-                                  placeholder={
-                                    draft.defaultBandResistance || "—"
-                                  }
+                                  placeholder={draft.defaultBandResistance || "—"}
                                   onChange={(v) =>
                                     setDraft((d) =>
                                       d
-                                        ? {
-                                            ...d,
-                                            sets: d.sets.map((s) =>
-                                              s.id === set.id
-                                                ? { ...s, bandResistance: v }
-                                                : s,
-                                            ),
-                                          }
+                                        ? { ...d, sets: d.sets.map((s) => s.id === set.id ? { ...s, bandResistance: v } : s) }
                                         : d,
                                     )
                                   }
@@ -424,46 +415,42 @@ export function ExerciseEditorSheet({
                               </>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
 
                       {/* Set actions */}
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex gap-px border-t border-[var(--separator)]">
                         <button
                           type="button"
                           onClick={() =>
                             setDraft((d) =>
-                              d
-                                ? { ...d, sets: [...d.sets, createDraftSet()] }
-                                : d,
+                              d ? { ...d, sets: [...d.sets, createDraftSet()] } : d,
                             )
                           }
-                          className="flex-1 rounded-[12px] bg-[var(--background)] py-2.5 text-[14px] font-semibold text-[var(--accent)]"
+                          className="flex-1 py-3 text-[14px] font-semibold text-[var(--accent)]"
                         >
                           + Set vacío
                         </button>
+                        <div className="w-px bg-[var(--separator)]" />
                         <button
                           type="button"
                           onClick={() =>
                             setDraft((d) => {
                               if (!d || d.sets.length === 0) return d;
                               const last = d.sets[d.sets.length - 1];
-                              return {
-                                ...d,
-                                sets: [...d.sets, createDraftSet(last)],
-                              };
+                              return { ...d, sets: [...d.sets, createDraftSet(last)] };
                             })
                           }
-                          className="flex-1 rounded-[12px] bg-[var(--background)] py-2.5 text-[14px] font-semibold text-[var(--muted)]"
+                          className="flex-1 py-3 text-[14px] font-semibold text-[var(--muted)]"
                         >
                           Duplicar último
                         </button>
                       </div>
                     </div>
-                  </FormSection>
+                  </div>
 
                   {/* Notes */}
-                  <FormSection label="Nota (opcional)">
+                  <div className="mt-3">
                     <textarea
                       value={draft.notes}
                       onChange={(e) =>
@@ -472,10 +459,10 @@ export function ExerciseEditorSheet({
                         )
                       }
                       rows={2}
-                      placeholder="12 kg por mano, pausa 90s..."
+                      placeholder="Nota opcional: 12 kg por mano, pausa 90s..."
                       className="ios-input resize-none text-[15px]"
                     />
-                  </FormSection>
+                  </div>
 
                   {/* Library suggestions */}
                   {suggestions.length > 0 && (
@@ -546,50 +533,50 @@ export function ExerciseEditorSheet({
 
 /* ─── Internal sub-components ──────────────────────────────────────── */
 
-function FormSection({
-  label,
+function PillButton({
+  active,
+  onClick,
   children,
 }: {
-  label: string;
+  active: boolean;
+  onClick: () => void;
   children: ReactNode;
 }) {
   return (
-    <div className="mt-4">
-      <p className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wider text-[var(--muted)]">
-        {label}
-      </p>
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "rounded-full px-3 py-1 text-[13px] font-semibold transition-all",
+        active
+          ? "bg-[var(--accent)] text-white"
+          : "bg-[var(--fill-tertiary)] text-[var(--muted)]",
+      )}
+    >
       {children}
-    </div>
+    </button>
   );
 }
 
-function SegmentControl({
+function SetInput({
   value,
-  options,
   onChange,
+  placeholder,
+  inputMode,
 }: {
   value: string;
-  options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
+  placeholder?: string;
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
-    <div className="flex rounded-[12px] bg-[var(--fill-tertiary)] p-1 gap-1">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={clsx(
-            "flex-1 rounded-[9px] py-2 text-[13px] font-semibold transition-all",
-            option.value === value
-              ? "bg-[var(--background-secondary)] text-[var(--foreground)] shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-              : "text-[var(--muted)]",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      inputMode={inputMode}
+      placeholder={placeholder}
+      className="w-full rounded-[8px] bg-[var(--fill-tertiary)] px-2.5 py-1.5 text-[14px] text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)] focus:bg-[var(--accent-soft)] focus:ring-1 focus:ring-[var(--accent)]"
+    />
   );
 }
 
