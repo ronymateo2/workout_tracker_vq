@@ -45,8 +45,14 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
-  if (error !== null && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string") {
-    return (error as { message: string }).message;
+  if (error !== null && typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof e.message === "string") parts.push(e.message);
+    if (typeof e.code === "string") parts.push(`code: ${e.code}`);
+    if (typeof e.details === "string" && e.details) parts.push(e.details);
+    if (typeof e.hint === "string" && e.hint) parts.push(`hint: ${e.hint}`);
+    if (parts.length > 0) return parts.join(" · ");
   }
 
   return "Ocurrió un error inesperado.";
