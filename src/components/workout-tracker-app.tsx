@@ -2,8 +2,7 @@
 
 import { useDeferredValue, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { format, parseISO, startOfMonth } from "date-fns";
-import { es } from "date-fns/locale";
+import { startOfMonth } from "date-fns";
 import {
   CalendarDays,
   Dumbbell,
@@ -11,9 +10,6 @@ import {
   LoaderCircle,
   LogOut,
   Plus,
-  RefreshCw,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { useWorkoutTracker } from "@/lib/use-workout-tracker";
 import type { ExerciseLibraryItem, WorkoutEntry } from "@/lib/workout-types";
@@ -37,9 +33,7 @@ import {
 } from "@/features/calendar/calendar-utils";
 import { LibraryView } from "@/features/library/LibraryView";
 import { NavBar } from "@/shared/components/NavBar";
-import { StatusPill } from "@/shared/components/StatusPill";
 import { formatCompactDate } from "@/shared/lib/formatters";
-import { useServiceWorkerUpdater } from "@/shared/lib/use-service-worker-updater";
 
 type AppTab = "today" | "calendar" | "library";
 
@@ -67,16 +61,12 @@ export function WorkoutTrackerApp() {
     user,
     sessions,
     library,
-    isOnline,
     isSyncing,
-    lastSyncAt,
     errorMessage,
-    pendingCount,
     signInWithGoogle,
     signOut,
     saveEntry,
     deleteEntry,
-    syncNow,
     devSignIn,
     devSignOut,
   } = useWorkoutTracker();
@@ -89,8 +79,6 @@ export function WorkoutTrackerApp() {
   const deferredLibraryQuery = useDeferredValue(libraryQuery);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDraft, setEditorDraft] = useState<ExerciseDraft | null>(null);
-  const { waitingWorker, updateApp } = useServiceWorkerUpdater();
-
   const currentSession =
     sessions.find((s) => s.date === selectedDate) ?? null;
   const selectedSummary = getSessionSummary(currentSession);
@@ -147,7 +135,7 @@ export function WorkoutTrackerApp() {
           <div className="rounded-[20px] bg-[var(--background-secondary)] p-5 shadow-[var(--shadow)]">
             <p className="mb-4 text-[14px] leading-relaxed text-[var(--muted)]">
               Registra pesos, bandas, isométricos y sesiones del día con una
-              interfaz compacta y offline-first.
+              interfaz compacta y móvil.
             </p>
             <button
               type="button"
@@ -212,88 +200,34 @@ export function WorkoutTrackerApp() {
             </div>
 
             {/* Right controls */}
-            <div className="flex shrink-0 flex-col items-end gap-2 pt-0.5">
-              {/* User + logout */}
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">
-                  {firstName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void (devSignOut ? devSignOut() : signOut())}
-                  className="flex size-7 items-center justify-center rounded-full bg-[var(--fill-tertiary)] text-[var(--muted)] transition active:opacity-60"
-                  aria-label="Cerrar sesión"
-                >
-                  <LogOut className="size-3.5" />
-                </button>
-              </div>
-
-              {/* Sync status */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void syncNow()}
-                  className="flex items-center gap-1.5 rounded-full bg-[var(--fill-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)] transition active:opacity-60"
-                >
-                  <RefreshCw
-                    className={`size-3 ${isSyncing ? "animate-spin" : ""}`}
-                  />
-                  {isSyncing
-                    ? "Sync..."
-                    : lastSyncAt
-                      ? format(parseISO(lastSyncAt), "HH:mm", { locale: es })
-                      : "Sync"}
-                </button>
-                <StatusPill
-                  icon={
-                    isOnline ? (
-                      <Wifi className="size-3" />
-                    ) : (
-                      <WifiOff className="size-3" />
-                    )
-                  }
-                  label={
-                    isOnline
-                      ? pendingCount > 0
-                        ? `${pendingCount}↑`
-                        : "En línea"
-                      : "Offline"
-                  }
-                  tone={
-                    isOnline
-                      ? pendingCount > 0
-                        ? "warning"
-                        : "neutral"
-                      : "warning"
-                  }
-                />
-              </div>
+            <div className="flex shrink-0 items-center gap-2 pt-0.5">
+              {isSyncing && (
+                <LoaderCircle className="size-4 animate-spin text-[var(--muted)]" />
+              )}
+              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">
+                {firstName}
+              </span>
+              <button
+                type="button"
+                onClick={() => void (devSignOut ? devSignOut() : signOut())}
+                className="flex size-7 items-center justify-center rounded-full bg-[var(--fill-tertiary)] text-[var(--muted)] transition active:opacity-60"
+                aria-label="Cerrar sesión"
+              >
+                <LogOut className="size-3.5" />
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* ─── Banners ──────────────────────────────────────────────────── */}
-      <div className="mx-auto w-full max-w-lg px-4">
-        {waitingWorker ? (
-          <div className="mt-2 flex items-center justify-between gap-3 rounded-[14px] bg-[var(--background-secondary)] px-4 py-3 shadow-[var(--shadow-xs)]">
-            <p className="text-[14px] font-semibold">Nueva versión disponible</p>
-            <button
-              type="button"
-              onClick={updateApp}
-              className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-[12px] font-semibold text-white"
-            >
-              Actualizar
-            </button>
-          </div>
-        ) : null}
-
-        {errorMessage ? (
+      {/* ─── Error banner ─────────────────────────────────────────────── */}
+      {errorMessage ? (
+        <div className="mx-auto w-full max-w-lg px-4">
           <div className="mt-2 rounded-[14px] bg-[rgba(255,59,48,0.08)] px-4 py-3 text-[14px] font-medium text-[var(--danger)]">
             {errorMessage}
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {/* ─── Main content ─────────────────────────────────────────────── */}
       <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-4 pb-32">

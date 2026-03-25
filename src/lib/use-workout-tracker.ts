@@ -3,20 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AppUser } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-client";
-import {
-  deleteQueueItem,
-  deleteSessionFromLocal,
-  getLocalLibrary,
-  getLocalSessions,
-  getPendingQueueItems,
-  putLibraryItems,
-  putSessions,
-  saveSessionToLocal,
-} from "@/lib/local-db";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type {
   ExerciseLibraryItem,
-  SyncQueueItem,
   WorkoutEntry,
   WorkoutSession,
 } from "@/lib/workout-types";
@@ -85,10 +74,7 @@ async function fetchRemoteSnapshot(
   const supabase = getSupabaseBrowserClient(token);
 
   if (!supabase) {
-    return {
-      sessions: [],
-      library: [],
-    };
+    return { sessions: [], library: [] };
   }
 
   const [sessionsResponse, entriesResponse, setsResponse, libraryResponse] =
@@ -115,21 +101,10 @@ async function fetchRemoteSnapshot(
         .order("last_used_at", { ascending: false }),
     ]);
 
-  if (sessionsResponse.error) {
-    throw sessionsResponse.error;
-  }
-
-  if (entriesResponse.error) {
-    throw entriesResponse.error;
-  }
-
-  if (setsResponse.error) {
-    throw setsResponse.error;
-  }
-
-  if (libraryResponse.error) {
-    throw libraryResponse.error;
-  }
+  if (sessionsResponse.error) throw sessionsResponse.error;
+  if (entriesResponse.error) throw entriesResponse.error;
+  if (setsResponse.error) throw setsResponse.error;
+  if (libraryResponse.error) throw libraryResponse.error;
 
   const setMap = new Map<string, RemoteSnapshot["sessions"][number]["entries"][number]["sets"]>();
 
@@ -167,7 +142,7 @@ async function fetchRemoteSnapshot(
       defaultBandResistance: remoteEntry.default_band_resistance,
       notes: remoteEntry.notes ?? "",
       sets: (setMap.get(remoteEntry.id) ?? []).sort(
-        (left, right) => left.position - right.position,
+        (l, r) => l.position - r.position,
       ),
     });
     entryMap.set(remoteEntry.session_id, currentEntries);
@@ -175,17 +150,15 @@ async function fetchRemoteSnapshot(
 
   return {
     sessions: sortSessions(
-      (sessionsResponse.data ?? []).map((remoteSession) => ({
-        id: remoteSession.id,
-        userId: remoteSession.user_id,
-        date: remoteSession.session_date,
-        notes: remoteSession.notes ?? "",
-        entries: (entryMap.get(remoteSession.id) ?? []).sort(
-          (left, right) => left.position - right.position,
-        ),
-        syncState: "synced",
-        createdAt: remoteSession.created_at,
-        updatedAt: remoteSession.updated_at,
+      (sessionsResponse.data ?? []).map((s) => ({
+        id: s.id,
+        userId: s.user_id,
+        date: s.session_date,
+        notes: s.notes ?? "",
+        entries: (entryMap.get(s.id) ?? []).sort((l, r) => l.position - r.position),
+        syncState: "synced" as const,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
       })),
     ),
     library: sortLibrary(
@@ -203,12 +176,10 @@ async function fetchRemoteSnapshot(
   };
 }
 
-async function syncSessionSnapshot(session: WorkoutSession, token: string) {
+async function syncSessionToRemote(session: WorkoutSession, token: string) {
   const supabase = getSupabaseBrowserClient(token);
 
-  if (!supabase) {
-    return;
-  }
+  if (!supabase) return;
 
   const { error: sessionError } = await supabase.from("workout_sessions").upsert(
     {
@@ -216,17 +187,12 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
       user_id: session.userId,
       session_date: session.date,
       notes: session.notes,
-      sync_state: "synced",
       updated_at: session.updatedAt,
     },
-    {
-      onConflict: "id",
-    },
+    { onConflict: "id" },
   );
 
-  if (sessionError) {
-    throw sessionError;
-  }
+  if (sessionError) throw sessionError;
 
   const { error: deleteEntriesError } = await supabase
     .from("workout_entries")
@@ -234,9 +200,7 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
     .eq("user_id", session.userId)
     .eq("session_id", session.id);
 
-  if (deleteEntriesError) {
-    throw deleteEntriesError;
-  }
+  if (deleteEntriesError) throw deleteEntriesError;
 
   if (session.entries.length > 0) {
     const { error: entryError } = await supabase.from("workout_entries").insert(
@@ -259,9 +223,7 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
       })),
     );
 
-    if (entryError) {
-      throw entryError;
-    }
+    if (entryError) throw entryError;
   }
 
   const sets = session.entries.flatMap((entry) =>
@@ -283,7 +245,6 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
     const { error: setsError } = await supabase.from("workout_sets").insert(sets);
 
     if (setsError) {
-      // Rollback entries to avoid leaving Supabase with entries but no sets
       await supabase
         .from("workout_entries")
         .delete()
@@ -294,12 +255,10 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
   }
 }
 
-async function syncLibrarySnapshot(items: ExerciseLibraryItem[], token: string) {
+async function syncLibraryToRemote(items: ExerciseLibraryItem[], token: string) {
   const supabase = getSupabaseBrowserClient(token);
 
-  if (!supabase || items.length === 0) {
-    return;
-  }
+  if (!supabase || items.length === 0) return;
 
   const { error } = await supabase.from("exercise_library").upsert(
     items.map((item) => ({
@@ -311,66 +270,10 @@ async function syncLibrarySnapshot(items: ExerciseLibraryItem[], token: string) 
       last_used_at: item.lastUsedAt,
       updated_at: item.updatedAt,
     })),
-    {
-      onConflict: "user_id,normalized_name",
-    },
+    { onConflict: "user_id,normalized_name" },
   );
 
-  if (error) {
-    throw error;
-  }
-}
-
-function mergeRemoteSessions(
-  localSessions: WorkoutSession[],
-  remoteSessions: WorkoutSession[],
-  queueItems: SyncQueueItem[],
-) {
-  const pendingMap = new Map(
-    localSessions
-      .filter((session) => session.syncState !== "synced")
-      .map((session) => [session.id, session]),
-  );
-  const deletedSessionIds = new Set(
-    queueItems
-      .filter((item) => item.kind === "delete-session")
-      .map((item) => item.sessionId),
-  );
-
-  const merged: WorkoutSession[] = [];
-
-  for (const session of remoteSessions) {
-    if (deletedSessionIds.has(session.id)) {
-      continue;
-    }
-
-    merged.push(pendingMap.get(session.id) ?? session);
-  }
-
-  for (const session of pendingMap.values()) {
-    if (!merged.some((candidate) => candidate.id === session.id)) {
-      merged.push(session);
-    }
-  }
-
-  return sortSessions(merged);
-}
-
-function mergeRemoteLibrary(
-  localLibrary: ExerciseLibraryItem[],
-  remoteLibrary: ExerciseLibraryItem[],
-) {
-  const merged = new Map<string, ExerciseLibraryItem>();
-
-  for (const item of [...remoteLibrary, ...localLibrary]) {
-    const current = merged.get(item.normalizedName);
-
-    if (!current || current.updatedAt < item.updatedAt) {
-      merged.set(item.normalizedName, item);
-    }
-  }
-
-  return sortLibrary([...merged.values()]);
+  if (error) throw error;
 }
 
 function touchLibrary(
@@ -379,16 +282,17 @@ function touchLibrary(
   entry: WorkoutEntry,
   linkedExercise: ExerciseLibraryItem | null,
   typedName: string,
-) {
+): { library: ExerciseLibraryItem[]; touched: ExerciseLibraryItem[] } {
   const nextLibrary = [...currentLibrary];
   const now = new Date().toISOString();
   const normalizedTypedName = normalizeExerciseName(typedName);
 
   if (linkedExercise) {
     const itemIndex = nextLibrary.findIndex((item) => item.id === linkedExercise.id);
-    const nextAliases = linkedExercise.aliases.includes(typedName) || !normalizedTypedName
-      ? linkedExercise.aliases
-      : [...linkedExercise.aliases, typedName];
+    const nextAliases =
+      linkedExercise.aliases.includes(typedName) || !normalizedTypedName
+        ? linkedExercise.aliases
+        : [...linkedExercise.aliases, typedName];
     const item: ExerciseLibraryItem = {
       ...linkedExercise,
       aliases: nextAliases,
@@ -402,7 +306,7 @@ function touchLibrary(
       nextLibrary.push(item);
     }
 
-    return sortLibrary(nextLibrary);
+    return { library: sortLibrary(nextLibrary), touched: [item] };
   }
 
   const existingItemIndex = nextLibrary.findIndex(
@@ -415,10 +319,13 @@ function touchLibrary(
       lastUsedAt: now,
       updatedAt: now,
     };
-    return sortLibrary(nextLibrary);
+    return {
+      library: sortLibrary(nextLibrary),
+      touched: [nextLibrary[existingItemIndex]],
+    };
   }
 
-  nextLibrary.unshift({
+  const newItem: ExerciseLibraryItem = {
     id: crypto.randomUUID(),
     userId,
     canonicalName: entry.exerciseName,
@@ -430,9 +337,11 @@ function touchLibrary(
     lastUsedAt: now,
     createdAt: now,
     updatedAt: now,
-  });
+  };
 
-  return sortLibrary(nextLibrary);
+  nextLibrary.unshift(newItem);
+
+  return { library: sortLibrary(nextLibrary), touched: [newItem] };
 }
 
 export function useWorkoutTracker() {
@@ -447,120 +356,26 @@ export function useWorkoutTracker() {
   const [status, setStatus] = useState<TrackerStatus>("loading");
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
-  const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const hydrateFromRemote = useCallback(async (activeUser: AppUser, token: string) => {
-    const [localSessions, localLibrary, queueItems, remoteSnapshot] =
-      await Promise.all([
-        getLocalSessions(activeUser.id),
-        getLocalLibrary(activeUser.id),
-        getPendingQueueItems(activeUser.id),
-        fetchRemoteSnapshot(activeUser.id, token),
-      ]);
-
-    const mergedSessions = mergeRemoteSessions(
-      localSessions,
-      remoteSnapshot.sessions,
-      queueItems,
-    );
-    const mergedLibrary = mergeRemoteLibrary(localLibrary, remoteSnapshot.library);
-
-    setSessions(mergedSessions);
-    setLibrary(mergedLibrary);
-    await Promise.all([putSessions(mergedSessions), putLibraryItems(mergedLibrary)]);
-  }, []);
-
-  const syncPendingChanges = useCallback(async (activeUser: AppUser, token: string) => {
-    if (!navigator.onLine || !token) {
-      return;
-    }
-
-    const supabase = getSupabaseBrowserClient(token);
-
-    if (!supabase) {
-      return;
-    }
-
-    setIsSyncing(true);
+  const loadUserData = useCallback(async (activeUser: AppUser, token: string) => {
+    setStatus("loading");
     setErrorMessage(null);
 
     try {
       await upsertProfile(activeUser, token);
-
-      const queueItems = await getPendingQueueItems(activeUser.id);
-
-      for (const item of queueItems) {
-        if (item.kind === "delete-session") {
-          const { error } = await supabase
-            .from("workout_sessions")
-            .delete()
-            .eq("user_id", activeUser.id)
-            .eq("id", item.sessionId);
-
-          if (error) {
-            throw error;
-          }
-
-          await deleteSessionFromLocal(item.sessionId, activeUser.id, false);
-          continue;
-        }
-
-        const localSessions = await getLocalSessions(activeUser.id);
-        const session = localSessions.find(
-          (candidate) => candidate.id === item.sessionId,
-        );
-
-        if (!session) {
-          await deleteQueueItem(item.id);
-          continue;
-        }
-
-        await syncSessionSnapshot(session, token);
-        await saveSessionToLocal(
-          {
-            ...session,
-            syncState: "synced",
-          },
-          false,
-        );
-        await deleteQueueItem(item.id);
-      }
-
-      const localLibrary = await getLocalLibrary(activeUser.id);
-      await syncLibrarySnapshot(localLibrary, token);
-      await hydrateFromRemote(activeUser, token);
-      setLastSyncAt(new Date().toISOString());
+      const snapshot = await fetchRemoteSnapshot(activeUser.id, token);
+      setSessions(snapshot.sessions);
+      setLibrary(snapshot.library);
     } catch (error) {
-      console.error("[sync] error:", error);
+      console.error("[load] error:", error);
       setErrorMessage(getErrorMessage(error));
-      const localSessions = await getLocalSessions(activeUser.id);
-      setSessions(sortSessions(localSessions));
     } finally {
-      setIsSyncing(false);
+      setStatus("ready");
     }
-  }, [hydrateFromRemote]);
+  }, []);
 
-  const loadUserData = useCallback(async (activeUser: AppUser, token: string) => {
-    setStatus("loading");
-
-    const [localSessions, localLibrary] = await Promise.all([
-      getLocalSessions(activeUser.id),
-      getLocalLibrary(activeUser.id),
-    ]);
-
-    setSessions(sortSessions(localSessions));
-    setLibrary(sortLibrary(localLibrary));
-    setStatus("ready");
-
-    if (navigator.onLine) {
-      await syncPendingChanges(activeUser, token);
-    }
-  }, [syncPendingChanges]);
-
-  // React to auth state changes
   useEffect(() => {
     if (authStatus === "loading") {
       setStatus("loading");
@@ -579,34 +394,10 @@ export function useWorkoutTracker() {
     }
   }, [authStatus, authUser, supabaseToken, loadUserData]);
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-
-    const handleOnline = () => {
-      setIsOnline(true);
-
-      if (authUser && supabaseToken) {
-        void syncPendingChanges(authUser, supabaseToken);
-      }
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [syncPendingChanges, authUser, supabaseToken]);
-
   // ─── Dev bypass (development only) ──────────────────────────────
   const [devUser, setDevUser] = useState<AppUser | null>(null);
 
-  async function devSignIn() {
+  function devSignIn() {
     if (process.env.NODE_ENV !== "development") return;
     const mockUser: AppUser = {
       id: "dev-00000000-0000-0000-0000-000000000000",
@@ -615,12 +406,8 @@ export function useWorkoutTracker() {
       avatarUrl: null,
     };
     setDevUser(mockUser);
-    const [localSessions, localLibrary] = await Promise.all([
-      getLocalSessions(mockUser.id),
-      getLocalLibrary(mockUser.id),
-    ]);
-    setSessions(sortSessions(localSessions));
-    setLibrary(sortLibrary(localLibrary));
+    setSessions([]);
+    setLibrary([]);
     setStatus("ready");
   }
 
@@ -642,32 +429,20 @@ export function useWorkoutTracker() {
     await authSignOut();
   }
 
-  async function saveEntry({
-    date,
-    entry,
-    linkedExercise,
-    typedName,
-  }: SaveEntryInput) {
-    if (!user) {
-      return;
-    }
+  async function saveEntry({ date, entry, linkedExercise, typedName }: SaveEntryInput) {
+    if (!user || !supabaseToken) return;
 
     setErrorMessage(null);
+    setIsSyncing(true);
 
-    const currentSession =
-      sessions.find((session) => session.date === date) ?? null;
+    const currentSession = sessions.find((s) => s.date === date) ?? null;
     const now = new Date().toISOString();
     const nextEntries = currentSession
-      ? currentSession.entries.map((existingEntry) =>
-          existingEntry.id === entry.id ? entry : existingEntry,
-        )
+      ? currentSession.entries.map((e) => (e.id === entry.id ? entry : e))
       : [];
 
-    if (!currentSession || !currentSession.entries.some((item) => item.id === entry.id)) {
-      nextEntries.push({
-        ...entry,
-        position: nextEntries.length,
-      });
+    if (!currentSession || !currentSession.entries.some((e) => e.id === entry.id)) {
+      nextEntries.push({ ...entry, position: nextEntries.length });
     }
 
     const nextSessionId = currentSession?.id ?? crypto.randomUUID();
@@ -676,110 +451,100 @@ export function useWorkoutTracker() {
       userId: user.id,
       date,
       notes: currentSession?.notes ?? "",
-      entries: nextEntries.map((existingEntry, position) => ({
-        ...existingEntry,
+      entries: nextEntries.map((e, position) => ({
+        ...e,
         sessionId: nextSessionId,
         position,
       })),
-      syncState: "pending",
+      syncState: "synced",
       createdAt: currentSession?.createdAt ?? now,
       updatedAt: now,
     };
 
     const nextSessions = sortSessions([
-      ...sessions.filter((session) => session.id !== nextSession.id),
+      ...sessions.filter((s) => s.id !== nextSession.id),
       nextSession,
     ]);
-    const nextLibrary = touchLibrary(library, user.id, entry, linkedExercise, typedName);
+    const { library: nextLibrary, touched } = touchLibrary(
+      library,
+      user.id,
+      entry,
+      linkedExercise,
+      typedName,
+    );
 
     setSessions(nextSessions);
     setLibrary(nextLibrary);
-    await Promise.all([
-      saveSessionToLocal(nextSession),
-      putLibraryItems(nextLibrary),
-    ]);
 
-    if (navigator.onLine && supabaseToken) {
-      await syncPendingChanges(user, supabaseToken);
+    try {
+      await syncSessionToRemote(nextSession, supabaseToken);
+      await syncLibraryToRemote(touched, supabaseToken);
+    } catch (error) {
+      console.error("[saveEntry] error:", error);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSyncing(false);
     }
   }
 
   async function deleteEntry(date: string, entryId: string) {
-    if (!user) {
-      return;
-    }
+    if (!user || !supabaseToken) return;
 
-    const currentSession = sessions.find((session) => session.date === date);
+    const currentSession = sessions.find((s) => s.date === date);
+    if (!currentSession) return;
 
-    if (!currentSession) {
-      return;
-    }
+    setErrorMessage(null);
+    setIsSyncing(true);
 
     const nextEntries = currentSession.entries
-      .filter((entry) => entry.id !== entryId)
-      .map((entry, position) => ({
-        ...entry,
-        position,
-      }));
+      .filter((e) => e.id !== entryId)
+      .map((e, position) => ({ ...e, position }));
 
-    if (nextEntries.length === 0) {
-      const nextSessions = sessions.filter((session) => session.id !== currentSession.id);
-      setSessions(nextSessions);
-      await deleteSessionFromLocal(currentSession.id, user.id);
-
-      if (navigator.onLine && supabaseToken) {
-        await syncPendingChanges(user, supabaseToken);
+    try {
+      if (nextEntries.length === 0) {
+        setSessions(sessions.filter((s) => s.id !== currentSession.id));
+        const supabase = getSupabaseBrowserClient(supabaseToken);
+        if (supabase) {
+          const { error } = await supabase
+            .from("workout_sessions")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("id", currentSession.id);
+          if (error) throw error;
+        }
+      } else {
+        const nextSession: WorkoutSession = {
+          ...currentSession,
+          entries: nextEntries,
+          updatedAt: new Date().toISOString(),
+        };
+        setSessions(
+          sortSessions([
+            ...sessions.filter((s) => s.id !== currentSession.id),
+            nextSession,
+          ]),
+        );
+        await syncSessionToRemote(nextSession, supabaseToken);
       }
-
-      return;
-    }
-
-    const nextSession: WorkoutSession = {
-      ...currentSession,
-      entries: nextEntries,
-      syncState: "pending",
-      updatedAt: new Date().toISOString(),
-    };
-    const nextSessions = sortSessions([
-      ...sessions.filter((session) => session.id !== currentSession.id),
-      nextSession,
-    ]);
-
-    setSessions(nextSessions);
-    await saveSessionToLocal(nextSession);
-
-    if (navigator.onLine && supabaseToken) {
-      await syncPendingChanges(user, supabaseToken);
+    } catch (error) {
+      console.error("[deleteEntry] error:", error);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSyncing(false);
     }
   }
-
-  async function syncNow() {
-    if (!user || !supabaseToken) {
-      return;
-    }
-
-    await syncPendingChanges(user, supabaseToken);
-  }
-
-  const pendingCount = sessions.filter(
-    (session) => session.syncState !== "synced",
-  ).length;
 
   return {
     status,
     user,
     sessions,
     library,
-    isOnline,
     isSyncing,
-    lastSyncAt,
     errorMessage,
-    pendingCount,
     signInWithGoogle,
     signOut,
     saveEntry,
     deleteEntry,
-    syncNow,
     devSignIn: process.env.NODE_ENV === "development" ? devSignIn : undefined,
     devSignOut: process.env.NODE_ENV === "development" ? devSignOut : undefined,
   };

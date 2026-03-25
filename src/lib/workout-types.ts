@@ -1,7 +1,6 @@
 export type ExerciseMode = "reps" | "isometric";
 export type LoadMode = "bodyweight" | "weight" | "band" | "mixed";
 export type SyncState = "synced" | "pending" | "error";
-export type QueueKind = "upsert-session" | "delete-session";
 
 export interface ExerciseLibraryItem {
   id: string;
@@ -53,13 +52,6 @@ export interface WorkoutSession {
   updatedAt: string;
 }
 
-export interface SyncQueueItem {
-  id: string;
-  userId: string;
-  sessionId: string;
-  kind: QueueKind;
-  createdAt: string;
-}
 
 export function normalizeExerciseName(value: string) {
   return value
