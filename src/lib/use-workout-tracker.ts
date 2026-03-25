@@ -45,6 +45,10 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
+  if (error !== null && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string") {
+    return (error as { message: string }).message;
+  }
+
   return "Ocurrió un error inesperado.";
 }
 
@@ -273,6 +277,12 @@ async function syncSessionSnapshot(session: WorkoutSession, token: string) {
     const { error: setsError } = await supabase.from("workout_sets").insert(sets);
 
     if (setsError) {
+      // Rollback entries to avoid leaving Supabase with entries but no sets
+      await supabase
+        .from("workout_entries")
+        .delete()
+        .eq("user_id", session.userId)
+        .eq("session_id", session.id);
       throw setsError;
     }
   }
@@ -518,6 +528,7 @@ export function useWorkoutTracker() {
       await hydrateFromRemote(activeUser, token);
       setLastSyncAt(new Date().toISOString());
     } catch (error) {
+      console.error("[sync] error:", error);
       setErrorMessage(getErrorMessage(error));
       const localSessions = await getLocalSessions(activeUser.id);
       setSessions(sortSessions(localSessions));
