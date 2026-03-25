@@ -1,7 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let browserClient: SupabaseClient | null = null;
-
 export function hasSupabaseEnv() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -9,26 +7,21 @@ export function hasSupabaseEnv() {
   );
 }
 
-export function getSupabaseBrowserClient() {
+export function getSupabaseBrowserClient(token: string): SupabaseClient | null {
   if (!hasSupabaseEnv()) {
     return null;
   }
 
-  if (!browserClient) {
-    browserClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          flowType: "pkce",
-          persistSession: true,
-          storageKey: "rurana-auth",
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      accessToken: async () => token,
+      global: {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
       },
-    );
-  }
-
-  return browserClient;
+    },
+  );
 }

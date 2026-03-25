@@ -124,27 +124,6 @@ export function WorkoutTrackerApp() {
     );
   }
 
-  /* ─── Missing config ──────────────────────────────────────────────── */
-  if (status === "missing-config") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-5">
-        <div className="w-full max-w-sm rounded-[20px] bg-[var(--background-secondary)] p-6 shadow-[var(--shadow)]">
-          <p className="text-[13px] font-semibold uppercase tracking-wider text-[var(--muted)]">
-            Configuración requerida
-          </p>
-          <h1 className="mt-3 text-[22px] font-bold tracking-tight">
-            Falta conectar Supabase
-          </h1>
-          <p className="mt-2 text-[14px] leading-relaxed text-[var(--muted)]">
-            Completa las variables de entorno en{" "}
-            <code className="rounded bg-[var(--fill-tertiary)] px-1 py-0.5 text-[13px]">
-              .env.local
-            </code>
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   /* ─── Auth / Login ────────────────────────────────────────────────── */
   if (!user || status === "auth") {
@@ -201,7 +180,7 @@ export function WorkoutTrackerApp() {
 
   /* ─── Main App ────────────────────────────────────────────────────── */
   const firstName =
-    (user.user_metadata.full_name as string | undefined)?.split(" ")[0] ??
+    user.fullName?.split(" ")[0] ??
     user.email ??
     "Tú";
 

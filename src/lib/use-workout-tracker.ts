@@ -1,7 +1,8 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { useCallback, useEffect, useState } from "react";
+import type { AppUser } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-client";
 import {
   deleteQueueItem,
   deleteSessionFromLocal,
@@ -12,7 +13,7 @@ import {
   putSessions,
   saveSessionToLocal,
 } from "@/lib/local-db";
-import { getSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type {
   ExerciseLibraryItem,
   SyncQueueItem,
@@ -25,7 +26,7 @@ import {
   sortSessions,
 } from "@/lib/workout-types";
 
-type TrackerStatus = "loading" | "auth" | "ready" | "missing-config";
+type TrackerStatus = "loading" | "auth" | "ready";
 
 interface SaveEntryInput {
   date: string;
@@ -47,8 +48,8 @@ function getErrorMessage(error: unknown) {
   return "Ocurrió un error inesperado.";
 }
 
-async function upsertProfile(activeUser: User) {
-  const supabase = getSupabaseBrowserClient();
+async function upsertProfile(activeUser: AppUser, token: string) {
+  const supabase = getSupabaseBrowserClient(token);
 
   if (!supabase) {
     return;
@@ -57,11 +58,8 @@ async function upsertProfile(activeUser: User) {
   const { error } = await supabase.from("profiles").upsert({
     id: activeUser.id,
     email: activeUser.email ?? null,
-    full_name:
-      activeUser.user_metadata.full_name ??
-      activeUser.user_metadata.name ??
-      null,
-    avatar_url: activeUser.user_metadata.avatar_url ?? null,
+    full_name: activeUser.fullName ?? null,
+    avatar_url: activeUser.avatarUrl ?? null,
     updated_at: new Date().toISOString(),
   });
 
@@ -70,8 +68,11 @@ async function upsertProfile(activeUser: User) {
   }
 }
 
-async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
-  const supabase = getSupabaseBrowserClient();
+async function fetchRemoteSnapshot(
+  userId: string,
+  token: string,
+): Promise<RemoteSnapshot> {
+  const supabase = getSupabaseBrowserClient(token);
 
   if (!supabase) {
     return {
@@ -192,8 +193,8 @@ async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
   };
 }
 
-async function syncSessionSnapshot(session: WorkoutSession) {
-  const supabase = getSupabaseBrowserClient();
+async function syncSessionSnapshot(session: WorkoutSession, token: string) {
+  const supabase = getSupabaseBrowserClient(token);
 
   if (!supabase) {
     return;
@@ -277,8 +278,8 @@ async function syncSessionSnapshot(session: WorkoutSession) {
   }
 }
 
-async function syncLibrarySnapshot(items: ExerciseLibraryItem[]) {
-  const supabase = getSupabaseBrowserClient();
+async function syncLibrarySnapshot(items: ExerciseLibraryItem[], token: string) {
+  const supabase = getSupabaseBrowserClient(token);
 
   if (!supabase || items.length === 0) {
     return;
@@ -419,8 +420,15 @@ function touchLibrary(
 }
 
 export function useWorkoutTracker() {
+  const {
+    user: authUser,
+    status: authStatus,
+    supabaseToken,
+    signInWithGoogle,
+    signOut: authSignOut,
+  } = useAuth();
+
   const [status, setStatus] = useState<TrackerStatus>("loading");
-  const [user, setUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
   const [isOnline, setIsOnline] = useState(true);
@@ -428,13 +436,13 @@ export function useWorkoutTracker() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const hydrateFromRemote = useCallback(async (activeUser: User) => {
+  const hydrateFromRemote = useCallback(async (activeUser: AppUser, token: string) => {
     const [localSessions, localLibrary, queueItems, remoteSnapshot] =
       await Promise.all([
         getLocalSessions(activeUser.id),
         getLocalLibrary(activeUser.id),
         getPendingQueueItems(activeUser.id),
-        fetchRemoteSnapshot(activeUser.id),
+        fetchRemoteSnapshot(activeUser.id, token),
       ]);
 
     const mergedSessions = mergeRemoteSessions(
@@ -449,12 +457,12 @@ export function useWorkoutTracker() {
     await Promise.all([putSessions(mergedSessions), putLibraryItems(mergedLibrary)]);
   }, []);
 
-  const syncPendingChanges = useCallback(async (activeUser: User) => {
-    if (!navigator.onLine) {
+  const syncPendingChanges = useCallback(async (activeUser: AppUser, token: string) => {
+    if (!navigator.onLine || !token) {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
+    const supabase = getSupabaseBrowserClient(token);
 
     if (!supabase) {
       return;
@@ -464,7 +472,7 @@ export function useWorkoutTracker() {
     setErrorMessage(null);
 
     try {
-      await upsertProfile(activeUser);
+      await upsertProfile(activeUser, token);
 
       const queueItems = await getPendingQueueItems(activeUser.id);
 
@@ -494,7 +502,7 @@ export function useWorkoutTracker() {
           continue;
         }
 
-        await syncSessionSnapshot(session);
+        await syncSessionSnapshot(session, token);
         await saveSessionToLocal(
           {
             ...session,
@@ -506,8 +514,8 @@ export function useWorkoutTracker() {
       }
 
       const localLibrary = await getLocalLibrary(activeUser.id);
-      await syncLibrarySnapshot(localLibrary);
-      await hydrateFromRemote(activeUser);
+      await syncLibrarySnapshot(localLibrary, token);
+      await hydrateFromRemote(activeUser, token);
       setLastSyncAt(new Date().toISOString());
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -518,7 +526,7 @@ export function useWorkoutTracker() {
     }
   }, [hydrateFromRemote]);
 
-  const loadUserData = useCallback(async (activeUser: User) => {
+  const loadUserData = useCallback(async (activeUser: AppUser, token: string) => {
     setStatus("loading");
 
     const [localSessions, localLibrary] = await Promise.all([
@@ -531,9 +539,28 @@ export function useWorkoutTracker() {
     setStatus("ready");
 
     if (navigator.onLine) {
-      await syncPendingChanges(activeUser);
+      await syncPendingChanges(activeUser, token);
     }
   }, [syncPendingChanges]);
+
+  // React to auth state changes
+  useEffect(() => {
+    if (authStatus === "loading") {
+      setStatus("loading");
+      return;
+    }
+
+    if (authStatus === "unauthenticated") {
+      setSessions([]);
+      setLibrary([]);
+      setStatus("auth");
+      return;
+    }
+
+    if (authUser && supabaseToken) {
+      void loadUserData(authUser, supabaseToken);
+    }
+  }, [authStatus, authUser, supabaseToken, loadUserData]);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -541,8 +568,8 @@ export function useWorkoutTracker() {
     const handleOnline = () => {
       setIsOnline(true);
 
-      if (user) {
-        void syncPendingChanges(user);
+      if (authUser && supabaseToken) {
+        void syncPendingChanges(authUser, supabaseToken);
       }
     };
 
@@ -557,97 +584,20 @@ export function useWorkoutTracker() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [syncPendingChanges, user]);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-
-    if (!hasSupabaseEnv() || !supabase) {
-      setStatus("missing-config");
-      return;
-    }
-
-    let isActive = true;
-
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!isActive) {
-        return;
-      }
-
-      if (error) {
-        setErrorMessage(error.message);
-      }
-
-      const nextUser = data.session?.user ?? null;
-      setUser(nextUser);
-
-      if (!nextUser) {
-        setStatus("auth");
-        return;
-      }
-
-      void loadUserData(nextUser);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isActive) {
-        return;
-      }
-
-      const nextUser = session?.user ?? null;
-      startTransition(() => {
-        setUser(nextUser);
-      });
-
-      if (!nextUser) {
-        setSessions([]);
-        setLibrary([]);
-        setStatus("auth");
-        return;
-      }
-
-      void loadUserData(nextUser);
-    });
-
-    return () => {
-      isActive = false;
-      subscription.unsubscribe();
-    };
-  }, [loadUserData]);
-
-  async function signInWithGoogle() {
-    const supabase = getSupabaseBrowserClient();
-
-    if (!supabase) {
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-    }
-  }
+  }, [syncPendingChanges, authUser, supabaseToken]);
 
   // ─── Dev bypass (development only) ──────────────────────────────
+  const [devUser, setDevUser] = useState<AppUser | null>(null);
+
   async function devSignIn() {
     if (process.env.NODE_ENV !== "development") return;
-    const mockUser = {
+    const mockUser: AppUser = {
       id: "dev-00000000-0000-0000-0000-000000000000",
       email: "dev@rurana.local",
-      user_metadata: { full_name: "Dev User" },
-      app_metadata: {},
-      aud: "authenticated",
-      created_at: new Date().toISOString(),
-    } as User;
-    setUser(mockUser);
+      fullName: "Dev User",
+      avatarUrl: null,
+    };
+    setDevUser(mockUser);
     const [localSessions, localLibrary] = await Promise.all([
       getLocalSessions(mockUser.id),
       getLocalLibrary(mockUser.id),
@@ -659,24 +609,20 @@ export function useWorkoutTracker() {
 
   function devSignOut() {
     if (process.env.NODE_ENV !== "development") return;
-    setUser(null);
+    setDevUser(null);
     setSessions([]);
     setLibrary([]);
     setStatus("auth");
   }
 
-  async function signOut() {
-    const supabase = getSupabaseBrowserClient();
+  const user = devUser ?? authUser;
 
-    if (!supabase) {
+  async function signOut() {
+    if (devUser) {
+      devSignOut();
       return;
     }
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      setErrorMessage(error.message);
-    }
+    await authSignOut();
   }
 
   async function saveEntry({
@@ -736,8 +682,8 @@ export function useWorkoutTracker() {
       putLibraryItems(nextLibrary),
     ]);
 
-    if (navigator.onLine) {
-      await syncPendingChanges(user);
+    if (navigator.onLine && supabaseToken) {
+      await syncPendingChanges(user, supabaseToken);
     }
   }
 
@@ -764,8 +710,8 @@ export function useWorkoutTracker() {
       setSessions(nextSessions);
       await deleteSessionFromLocal(currentSession.id, user.id);
 
-      if (navigator.onLine) {
-        await syncPendingChanges(user);
+      if (navigator.onLine && supabaseToken) {
+        await syncPendingChanges(user, supabaseToken);
       }
 
       return;
@@ -785,17 +731,17 @@ export function useWorkoutTracker() {
     setSessions(nextSessions);
     await saveSessionToLocal(nextSession);
 
-    if (navigator.onLine) {
-      await syncPendingChanges(user);
+    if (navigator.onLine && supabaseToken) {
+      await syncPendingChanges(user, supabaseToken);
     }
   }
 
   async function syncNow() {
-    if (!user) {
+    if (!user || !supabaseToken) {
       return;
     }
 
-    await syncPendingChanges(user);
+    await syncPendingChanges(user, supabaseToken);
   }
 
   const pendingCount = sessions.filter(
