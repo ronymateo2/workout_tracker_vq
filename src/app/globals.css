@@ -1,26 +1,170 @@
 @import "tailwindcss";
 
+/* ─── iOS System Design Tokens ─────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --background: #f2f2f7;
+  --background-secondary: #ffffff;
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-strong: rgba(255, 255, 255, 0.97);
+
+  /* Labels */
+  --foreground: #000000;
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary: rgba(60, 60, 67, 0.3);
+  --muted: rgba(60, 60, 67, 0.6);
+
+  /* Separators */
+  --separator: rgba(60, 60, 67, 0.18);
+  --separator-opaque: #c6c6c8;
+  --line: rgba(60, 60, 67, 0.18);
+  --line-strong: rgba(60, 60, 67, 0.29);
+
+  /* iOS Blue accent */
+  --accent: #007aff;
+  --accent-soft: rgba(0, 122, 255, 0.1);
+
+  /* Fills */
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+  --fill-quaternary: rgba(116, 116, 128, 0.08);
+
+  /* Semantic */
+  --success: #34c759;
+  --warning: #ff9500;
+  --danger: #ff3b30;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Typography */
+  --font-sans-stack: "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-mono-stack: "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Menlo", monospace;
+
+  /* Radii */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Base Reset ────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
 }
 
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans-stack);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(0, 122, 255, 0.15);
+}
+
+/* ─── iOS-style Surface (header, sheets) ──────────────────────────── */
+.ios-surface {
+  background: var(--surface);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--line);
+}
+
+/* ─── Card Surface (content cards) ───────────────────────────────── */
+.ios-card {
+  background: var(--background-secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+/* ─── Grouped List ────────────────────────────────────────────────── */
+.ios-list {
+  background: var(--background-secondary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.ios-list-item + .ios-list-item {
+  border-top: 1px solid var(--separator);
+}
+
+/* ─── Inputs ──────────────────────────────────────────────────────── */
+.ios-input {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--separator);
+  background: var(--background);
+  padding: 12px 14px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ios-input::placeholder {
+  color: var(--label-tertiary);
+}
+
+.ios-input:focus {
+  border-color: var(--accent);
+}
+
+/* ─── Safe Areas ─────────────────────────────────────────────────── */
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────── */
+.text-muted {
+  color: var(--muted);
+}
+
+.font-mono {
+  font-family: var(--font-mono-stack);
+}
+
+.hairline {
+  border-color: var(--separator);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.tap-highlight-transparent {
+  -webkit-tap-highlight-color: transparent;
 }

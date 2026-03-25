@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Rurana
 
-## Getting Started
+Rurana es una PWA mobile-first para registrar sesiones de entrenamiento con ejercicios dinámicos, bandas, pesas e isométricos. Usa `Next.js 16`, `React 19` y `Supabase`.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router + TypeScript
+- Supabase Auth con Google
+- Postgres + RLS por usuario
+- IndexedDB para cache local y cola offline
+- Service worker propio para instalación y updates
+
+## Variables de entorno
+
+1. Copia `.env.example` a `.env.local`.
+2. Completa:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Configuración de Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Habilita `Google` en `Authentication > Providers`.
+2. Agrega tus URLs local y de producción en `Redirect URLs`.
+3. Ejecuta la migración de `supabase/migrations/202603250001_init_workout_tracker.sql`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Desarrollo
 
-## Learn More
+Usa Node 22 LTS:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Comandos
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-## Deploy on Vercel
+## Funcionalidades incluidas
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Login con Google
+- Sesión diaria con múltiples ejercicios
+- Sets por reps o tiempo
+- Carga con peso, banda o modo mixto
+- Sugerencias desde la librería antes de guardar
+- Calendario con días entrenados
+- Cache local y sincronización posterior
+- PWA instalable con actualización de versión
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notas
+
+- La librería es privada por usuario.
+- El build usa `webpack` por estabilidad en este entorno.
+- El service worker se regenera en cada build para evitar quedar pegado a una versión vieja.

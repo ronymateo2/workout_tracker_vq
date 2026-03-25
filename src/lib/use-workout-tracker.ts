@@ -1,0 +1,823 @@
+"use client";
+
+import { startTransition, useCallback, useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import {
+  deleteQueueItem,
+  deleteSessionFromLocal,
+  getLocalLibrary,
+  getLocalSessions,
+  getPendingQueueItems,
+  putLibraryItems,
+  putSessions,
+  saveSessionToLocal,
+} from "@/lib/local-db";
+import { getSupabaseBrowserClient, hasSupabaseEnv } from "@/lib/supabase";
+import type {
+  ExerciseLibraryItem,
+  SyncQueueItem,
+  WorkoutEntry,
+  WorkoutSession,
+} from "@/lib/workout-types";
+import {
+  normalizeExerciseName,
+  sortLibrary,
+  sortSessions,
+} from "@/lib/workout-types";
+
+type TrackerStatus = "loading" | "auth" | "ready" | "missing-config";
+
+interface SaveEntryInput {
+  date: string;
+  entry: WorkoutEntry;
+  linkedExercise: ExerciseLibraryItem | null;
+  typedName: string;
+}
+
+interface RemoteSnapshot {
+  sessions: WorkoutSession[];
+  library: ExerciseLibraryItem[];
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Ocurrió un error inesperado.";
+}
+
+async function upsertProfile(activeUser: User) {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase.from("profiles").upsert({
+    id: activeUser.id,
+    email: activeUser.email ?? null,
+    full_name:
+      activeUser.user_metadata.full_name ??
+      activeUser.user_metadata.name ??
+      null,
+    avatar_url: activeUser.user_metadata.avatar_url ?? null,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase) {
+    return {
+      sessions: [],
+      library: [],
+    };
+  }
+
+  const [sessionsResponse, entriesResponse, setsResponse, libraryResponse] =
+    await Promise.all([
+      supabase
+        .from("workout_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("session_date", { ascending: false }),
+      supabase
+        .from("workout_entries")
+        .select("*")
+        .eq("user_id", userId)
+        .order("position", { ascending: true }),
+      supabase
+        .from("workout_sets")
+        .select("*")
+        .eq("user_id", userId)
+        .order("position", { ascending: true }),
+      supabase
+        .from("exercise_library")
+        .select("*")
+        .eq("user_id", userId)
+        .order("last_used_at", { ascending: false }),
+    ]);
+
+  if (sessionsResponse.error) {
+    throw sessionsResponse.error;
+  }
+
+  if (entriesResponse.error) {
+    throw entriesResponse.error;
+  }
+
+  if (setsResponse.error) {
+    throw setsResponse.error;
+  }
+
+  if (libraryResponse.error) {
+    throw libraryResponse.error;
+  }
+
+  const setMap = new Map<string, RemoteSnapshot["sessions"][number]["entries"][number]["sets"]>();
+
+  for (const remoteSet of setsResponse.data ?? []) {
+    const currentSets = setMap.get(remoteSet.entry_id) ?? [];
+    currentSets.push({
+      id: remoteSet.id,
+      position: remoteSet.position,
+      reps: remoteSet.reps,
+      durationSeconds: remoteSet.duration_seconds,
+      weightKg: Number(remoteSet.weight_kg ?? 0) || null,
+      bandColor: remoteSet.band_color,
+      bandResistance: remoteSet.band_resistance,
+    });
+    setMap.set(remoteSet.entry_id, currentSets);
+  }
+
+  const entryMap = new Map<string, WorkoutEntry[]>();
+
+  for (const remoteEntry of entriesResponse.data ?? []) {
+    const currentEntries = entryMap.get(remoteEntry.session_id) ?? [];
+    currentEntries.push({
+      id: remoteEntry.id,
+      sessionId: remoteEntry.session_id,
+      userId: remoteEntry.user_id,
+      position: remoteEntry.position,
+      exerciseName: remoteEntry.exercise_name,
+      normalizedName: remoteEntry.normalized_name,
+      canonicalExerciseId: remoteEntry.canonical_exercise_id,
+      exerciseMode: remoteEntry.exercise_mode,
+      loadMode: remoteEntry.load_mode,
+      unilateral: remoteEntry.unilateral,
+      defaultWeightKg: Number(remoteEntry.default_weight_kg ?? 0) || null,
+      defaultBandColor: remoteEntry.default_band_color,
+      defaultBandResistance: remoteEntry.default_band_resistance,
+      notes: remoteEntry.notes ?? "",
+      sets: (setMap.get(remoteEntry.id) ?? []).sort(
+        (left, right) => left.position - right.position,
+      ),
+    });
+    entryMap.set(remoteEntry.session_id, currentEntries);
+  }
+
+  return {
+    sessions: sortSessions(
+      (sessionsResponse.data ?? []).map((remoteSession) => ({
+        id: remoteSession.id,
+        userId: remoteSession.user_id,
+        date: remoteSession.session_date,
+        notes: remoteSession.notes ?? "",
+        entries: (entryMap.get(remoteSession.id) ?? []).sort(
+          (left, right) => left.position - right.position,
+        ),
+        syncState: "synced",
+        createdAt: remoteSession.created_at,
+        updatedAt: remoteSession.updated_at,
+      })),
+    ),
+    library: sortLibrary(
+      (libraryResponse.data ?? []).map((item) => ({
+        id: item.id,
+        userId: item.user_id,
+        canonicalName: item.canonical_name,
+        normalizedName: item.normalized_name,
+        aliases: item.aliases ?? [],
+        lastUsedAt: item.last_used_at,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      })),
+    ),
+  };
+}
+
+async function syncSessionSnapshot(session: WorkoutSession) {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase) {
+    return;
+  }
+
+  const { error: sessionError } = await supabase.from("workout_sessions").upsert(
+    {
+      id: session.id,
+      user_id: session.userId,
+      session_date: session.date,
+      notes: session.notes,
+      sync_state: "synced",
+      updated_at: session.updatedAt,
+    },
+    {
+      onConflict: "id",
+    },
+  );
+
+  if (sessionError) {
+    throw sessionError;
+  }
+
+  const { error: deleteEntriesError } = await supabase
+    .from("workout_entries")
+    .delete()
+    .eq("user_id", session.userId)
+    .eq("session_id", session.id);
+
+  if (deleteEntriesError) {
+    throw deleteEntriesError;
+  }
+
+  if (session.entries.length > 0) {
+    const { error: entryError } = await supabase.from("workout_entries").insert(
+      session.entries.map((entry) => ({
+        id: entry.id,
+        session_id: session.id,
+        user_id: session.userId,
+        position: entry.position,
+        exercise_name: entry.exerciseName,
+        normalized_name: entry.normalizedName,
+        canonical_exercise_id: entry.canonicalExerciseId,
+        exercise_mode: entry.exerciseMode,
+        load_mode: entry.loadMode,
+        unilateral: entry.unilateral,
+        default_weight_kg: entry.defaultWeightKg,
+        default_band_color: entry.defaultBandColor,
+        default_band_resistance: entry.defaultBandResistance,
+        notes: entry.notes,
+        updated_at: session.updatedAt,
+      })),
+    );
+
+    if (entryError) {
+      throw entryError;
+    }
+  }
+
+  const sets = session.entries.flatMap((entry) =>
+    entry.sets.map((set) => ({
+      id: set.id,
+      entry_id: entry.id,
+      user_id: session.userId,
+      position: set.position,
+      reps: set.reps,
+      duration_seconds: set.durationSeconds,
+      weight_kg: set.weightKg,
+      band_color: set.bandColor,
+      band_resistance: set.bandResistance,
+      updated_at: session.updatedAt,
+    })),
+  );
+
+  if (sets.length > 0) {
+    const { error: setsError } = await supabase.from("workout_sets").insert(sets);
+
+    if (setsError) {
+      throw setsError;
+    }
+  }
+}
+
+async function syncLibrarySnapshot(items: ExerciseLibraryItem[]) {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase || items.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from("exercise_library").upsert(
+    items.map((item) => ({
+      id: item.id,
+      user_id: item.userId,
+      canonical_name: item.canonicalName,
+      normalized_name: item.normalizedName,
+      aliases: item.aliases,
+      last_used_at: item.lastUsedAt,
+      updated_at: item.updatedAt,
+    })),
+    {
+      onConflict: "user_id,normalized_name",
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+function mergeRemoteSessions(
+  localSessions: WorkoutSession[],
+  remoteSessions: WorkoutSession[],
+  queueItems: SyncQueueItem[],
+) {
+  const pendingMap = new Map(
+    localSessions
+      .filter((session) => session.syncState !== "synced")
+      .map((session) => [session.id, session]),
+  );
+  const deletedSessionIds = new Set(
+    queueItems
+      .filter((item) => item.kind === "delete-session")
+      .map((item) => item.sessionId),
+  );
+
+  const merged: WorkoutSession[] = [];
+
+  for (const session of remoteSessions) {
+    if (deletedSessionIds.has(session.id)) {
+      continue;
+    }
+
+    merged.push(pendingMap.get(session.id) ?? session);
+  }
+
+  for (const session of pendingMap.values()) {
+    if (!merged.some((candidate) => candidate.id === session.id)) {
+      merged.push(session);
+    }
+  }
+
+  return sortSessions(merged);
+}
+
+function mergeRemoteLibrary(
+  localLibrary: ExerciseLibraryItem[],
+  remoteLibrary: ExerciseLibraryItem[],
+) {
+  const merged = new Map<string, ExerciseLibraryItem>();
+
+  for (const item of [...remoteLibrary, ...localLibrary]) {
+    const current = merged.get(item.normalizedName);
+
+    if (!current || current.updatedAt < item.updatedAt) {
+      merged.set(item.normalizedName, item);
+    }
+  }
+
+  return sortLibrary([...merged.values()]);
+}
+
+function touchLibrary(
+  currentLibrary: ExerciseLibraryItem[],
+  userId: string,
+  entry: WorkoutEntry,
+  linkedExercise: ExerciseLibraryItem | null,
+  typedName: string,
+) {
+  const nextLibrary = [...currentLibrary];
+  const now = new Date().toISOString();
+  const normalizedTypedName = normalizeExerciseName(typedName);
+
+  if (linkedExercise) {
+    const itemIndex = nextLibrary.findIndex((item) => item.id === linkedExercise.id);
+    const nextAliases = linkedExercise.aliases.includes(typedName) || !normalizedTypedName
+      ? linkedExercise.aliases
+      : [...linkedExercise.aliases, typedName];
+    const item: ExerciseLibraryItem = {
+      ...linkedExercise,
+      aliases: nextAliases,
+      lastUsedAt: now,
+      updatedAt: now,
+    };
+
+    if (itemIndex >= 0) {
+      nextLibrary[itemIndex] = item;
+    } else {
+      nextLibrary.push(item);
+    }
+
+    return sortLibrary(nextLibrary);
+  }
+
+  const existingItemIndex = nextLibrary.findIndex(
+    (item) => item.normalizedName === entry.normalizedName,
+  );
+
+  if (existingItemIndex >= 0) {
+    nextLibrary[existingItemIndex] = {
+      ...nextLibrary[existingItemIndex],
+      lastUsedAt: now,
+      updatedAt: now,
+    };
+    return sortLibrary(nextLibrary);
+  }
+
+  nextLibrary.unshift({
+    id: crypto.randomUUID(),
+    userId,
+    canonicalName: entry.exerciseName,
+    normalizedName: entry.normalizedName,
+    aliases:
+      typedName && typedName.trim() !== entry.exerciseName.trim()
+        ? [typedName.trim()]
+        : [],
+    lastUsedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return sortLibrary(nextLibrary);
+}
+
+export function useWorkoutTracker() {
+  const [status, setStatus] = useState<TrackerStatus>("loading");
+  const [user, setUser] = useState<User | null>(null);
+  const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const hydrateFromRemote = useCallback(async (activeUser: User) => {
+    const [localSessions, localLibrary, queueItems, remoteSnapshot] =
+      await Promise.all([
+        getLocalSessions(activeUser.id),
+        getLocalLibrary(activeUser.id),
+        getPendingQueueItems(activeUser.id),
+        fetchRemoteSnapshot(activeUser.id),
+      ]);
+
+    const mergedSessions = mergeRemoteSessions(
+      localSessions,
+      remoteSnapshot.sessions,
+      queueItems,
+    );
+    const mergedLibrary = mergeRemoteLibrary(localLibrary, remoteSnapshot.library);
+
+    setSessions(mergedSessions);
+    setLibrary(mergedLibrary);
+    await Promise.all([putSessions(mergedSessions), putLibraryItems(mergedLibrary)]);
+  }, []);
+
+  const syncPendingChanges = useCallback(async (activeUser: User) => {
+    if (!navigator.onLine) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setErrorMessage(null);
+
+    try {
+      await upsertProfile(activeUser);
+
+      const queueItems = await getPendingQueueItems(activeUser.id);
+
+      for (const item of queueItems) {
+        if (item.kind === "delete-session") {
+          const { error } = await supabase
+            .from("workout_sessions")
+            .delete()
+            .eq("user_id", activeUser.id)
+            .eq("id", item.sessionId);
+
+          if (error) {
+            throw error;
+          }
+
+          await deleteSessionFromLocal(item.sessionId, activeUser.id, false);
+          continue;
+        }
+
+        const localSessions = await getLocalSessions(activeUser.id);
+        const session = localSessions.find(
+          (candidate) => candidate.id === item.sessionId,
+        );
+
+        if (!session) {
+          await deleteQueueItem(item.id);
+          continue;
+        }
+
+        await syncSessionSnapshot(session);
+        await saveSessionToLocal(
+          {
+            ...session,
+            syncState: "synced",
+          },
+          false,
+        );
+        await deleteQueueItem(item.id);
+      }
+
+      const localLibrary = await getLocalLibrary(activeUser.id);
+      await syncLibrarySnapshot(localLibrary);
+      await hydrateFromRemote(activeUser);
+      setLastSyncAt(new Date().toISOString());
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+      const localSessions = await getLocalSessions(activeUser.id);
+      setSessions(sortSessions(localSessions));
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [hydrateFromRemote]);
+
+  const loadUserData = useCallback(async (activeUser: User) => {
+    setStatus("loading");
+
+    const [localSessions, localLibrary] = await Promise.all([
+      getLocalSessions(activeUser.id),
+      getLocalLibrary(activeUser.id),
+    ]);
+
+    setSessions(sortSessions(localSessions));
+    setLibrary(sortLibrary(localLibrary));
+    setStatus("ready");
+
+    if (navigator.onLine) {
+      await syncPendingChanges(activeUser);
+    }
+  }, [syncPendingChanges]);
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+
+      if (user) {
+        void syncPendingChanges(user);
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [syncPendingChanges, user]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!hasSupabaseEnv() || !supabase) {
+      setStatus("missing-config");
+      return;
+    }
+
+    let isActive = true;
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!isActive) {
+        return;
+      }
+
+      if (error) {
+        setErrorMessage(error.message);
+      }
+
+      const nextUser = data.session?.user ?? null;
+      setUser(nextUser);
+
+      if (!nextUser) {
+        setStatus("auth");
+        return;
+      }
+
+      void loadUserData(nextUser);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isActive) {
+        return;
+      }
+
+      const nextUser = session?.user ?? null;
+      startTransition(() => {
+        setUser(nextUser);
+      });
+
+      if (!nextUser) {
+        setSessions([]);
+        setLibrary([]);
+        setStatus("auth");
+        return;
+      }
+
+      void loadUserData(nextUser);
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, [loadUserData]);
+
+  async function signInWithGoogle() {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  // ─── Dev bypass (development only) ──────────────────────────────
+  async function devSignIn() {
+    if (process.env.NODE_ENV !== "development") return;
+    const mockUser = {
+      id: "dev-00000000-0000-0000-0000-000000000000",
+      email: "dev@rurana.local",
+      user_metadata: { full_name: "Dev User" },
+      app_metadata: {},
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+    } as User;
+    setUser(mockUser);
+    const [localSessions, localLibrary] = await Promise.all([
+      getLocalSessions(mockUser.id),
+      getLocalLibrary(mockUser.id),
+    ]);
+    setSessions(sortSessions(localSessions));
+    setLibrary(sortLibrary(localLibrary));
+    setStatus("ready");
+  }
+
+  function devSignOut() {
+    if (process.env.NODE_ENV !== "development") return;
+    setUser(null);
+    setSessions([]);
+    setLibrary([]);
+    setStatus("auth");
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      setErrorMessage(error.message);
+    }
+  }
+
+  async function saveEntry({
+    date,
+    entry,
+    linkedExercise,
+    typedName,
+  }: SaveEntryInput) {
+    if (!user) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    const currentSession =
+      sessions.find((session) => session.date === date) ?? null;
+    const now = new Date().toISOString();
+    const nextEntries = currentSession
+      ? currentSession.entries.map((existingEntry) =>
+          existingEntry.id === entry.id ? entry : existingEntry,
+        )
+      : [];
+
+    if (!currentSession || !currentSession.entries.some((item) => item.id === entry.id)) {
+      nextEntries.push({
+        ...entry,
+        position: nextEntries.length,
+      });
+    }
+
+    const nextSessionId = currentSession?.id ?? crypto.randomUUID();
+    const nextSession: WorkoutSession = {
+      id: nextSessionId,
+      userId: user.id,
+      date,
+      notes: currentSession?.notes ?? "",
+      entries: nextEntries.map((existingEntry, position) => ({
+        ...existingEntry,
+        sessionId: nextSessionId,
+        position,
+      })),
+      syncState: "pending",
+      createdAt: currentSession?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    const nextSessions = sortSessions([
+      ...sessions.filter((session) => session.id !== nextSession.id),
+      nextSession,
+    ]);
+    const nextLibrary = touchLibrary(library, user.id, entry, linkedExercise, typedName);
+
+    setSessions(nextSessions);
+    setLibrary(nextLibrary);
+    await Promise.all([
+      saveSessionToLocal(nextSession),
+      putLibraryItems(nextLibrary),
+    ]);
+
+    if (navigator.onLine) {
+      await syncPendingChanges(user);
+    }
+  }
+
+  async function deleteEntry(date: string, entryId: string) {
+    if (!user) {
+      return;
+    }
+
+    const currentSession = sessions.find((session) => session.date === date);
+
+    if (!currentSession) {
+      return;
+    }
+
+    const nextEntries = currentSession.entries
+      .filter((entry) => entry.id !== entryId)
+      .map((entry, position) => ({
+        ...entry,
+        position,
+      }));
+
+    if (nextEntries.length === 0) {
+      const nextSessions = sessions.filter((session) => session.id !== currentSession.id);
+      setSessions(nextSessions);
+      await deleteSessionFromLocal(currentSession.id, user.id);
+
+      if (navigator.onLine) {
+        await syncPendingChanges(user);
+      }
+
+      return;
+    }
+
+    const nextSession: WorkoutSession = {
+      ...currentSession,
+      entries: nextEntries,
+      syncState: "pending",
+      updatedAt: new Date().toISOString(),
+    };
+    const nextSessions = sortSessions([
+      ...sessions.filter((session) => session.id !== currentSession.id),
+      nextSession,
+    ]);
+
+    setSessions(nextSessions);
+    await saveSessionToLocal(nextSession);
+
+    if (navigator.onLine) {
+      await syncPendingChanges(user);
+    }
+  }
+
+  async function syncNow() {
+    if (!user) {
+      return;
+    }
+
+    await syncPendingChanges(user);
+  }
+
+  const pendingCount = sessions.filter(
+    (session) => session.syncState !== "synced",
+  ).length;
+
+  return {
+    status,
+    user,
+    sessions,
+    library,
+    isOnline,
+    isSyncing,
+    lastSyncAt,
+    errorMessage,
+    pendingCount,
+    signInWithGoogle,
+    signOut,
+    saveEntry,
+    deleteEntry,
+    syncNow,
+    devSignIn: process.env.NODE_ENV === "development" ? devSignIn : undefined,
+    devSignOut: process.env.NODE_ENV === "development" ? devSignOut : undefined,
+  };
+}
