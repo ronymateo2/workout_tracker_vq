@@ -71,6 +71,7 @@ export function ActiveWorkout() {
           <Button
             variant="primary"
             size="sm"
+            className="!w-auto"
             onClick={() => void finishWorkout()}
           >
             Finalizar
@@ -109,14 +110,17 @@ export function ActiveWorkout() {
         ))}
 
         {/* Add Exercise button */}
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => setShowExercisePicker(true)}
-        >
-          <Plus className="size-5" />
-          Agregar Ejercicio
-        </Button>
+        <div className="flex justify-center">
+          <Button
+            variant="primary"
+            size="lg"
+            className="!w-auto px-8"
+            onClick={() => setShowExercisePicker(true)}
+          >
+            <Plus className="size-5" />
+            Agregar Ejercicio
+          </Button>
+        </div>
       </div>
 
       {/* Exercise Picker */}

@@ -56,6 +56,38 @@ export async function getRoutines(
   return (data ?? []) as Routine[];
 }
 
+export async function getRoutinesWithExerciseNames(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<(Routine & { exerciseNames: string[] })[]> {
+  const { data: routines } = await supabase
+    .from("routines")
+    .select("*")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+  if (!routines?.length) return [];
+
+  const routineIds = routines.map((r) => r.id as string);
+  const { data: reRows } = await supabase
+    .from("routine_exercises")
+    .select("routine_id, position, exercise_library(name)")
+    .in("routine_id", routineIds)
+    .order("position");
+
+  const namesByRoutine: Record<string, string[]> = {};
+  for (const row of reRows ?? []) {
+    const name = (row.exercise_library as { name: string } | null)?.name;
+    if (!name) continue;
+    if (!namesByRoutine[row.routine_id]) namesByRoutine[row.routine_id] = [];
+    namesByRoutine[row.routine_id].push(name);
+  }
+
+  return routines.map((r) => ({
+    ...(r as Routine),
+    exerciseNames: namesByRoutine[r.id] ?? [],
+  }));
+}
+
 export async function getRoutineWithExercises(
   supabase: SupabaseClient,
   routineId: string,
