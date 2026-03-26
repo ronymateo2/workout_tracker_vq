@@ -5,12 +5,21 @@ import { Dumbbell, LoaderCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
 import { WorkoutProvider } from "@/lib/workout-context";
+import { ThemeProvider } from "@/lib/theme-context";
 import { TabBar, type TabId } from "./tab-bar";
 import { HomeTab } from "./tabs/home-tab";
 import { WorkoutTab } from "./tabs/workout-tab";
 import { ProfileTab } from "./tabs/profile-tab";
 
 export function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
+function AppInner() {
   const { user, supabaseToken, status, signInWithGoogle, signOut } = useAuth();
 
   /* ─── Loading ─────────────────────────────────────────────────────── */

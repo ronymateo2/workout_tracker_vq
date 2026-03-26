@@ -53,6 +53,95 @@
   --radius-full: 9999px;
 }
 
+/* ─── iOS Light Theme (OS preference — pre-JS) ──────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #F2F2F7;
+    --background-secondary: #FFFFFF;
+    --background-tertiary: #F2F2F7;
+    --surface: rgba(255, 255, 255, 0.72);
+    --surface-strong: rgba(255, 255, 255, 0.97);
+    --foreground: #000000;
+    --label-secondary: rgba(60, 60, 67, 0.6);
+    --label-tertiary: rgba(60, 60, 67, 0.3);
+    --muted: rgba(60, 60, 67, 0.6);
+    --separator: rgba(60, 60, 67, 0.29);
+    --separator-opaque: #C6C6C8;
+    --line: rgba(60, 60, 67, 0.18);
+    --line-strong: rgba(60, 60, 67, 0.29);
+    --accent: #007AFF;
+    --accent-soft: rgba(0, 122, 255, 0.12);
+    --fill: rgba(120, 120, 128, 0.2);
+    --fill-secondary: rgba(120, 120, 128, 0.16);
+    --fill-tertiary: rgba(118, 118, 128, 0.12);
+    --fill-quaternary: rgba(116, 116, 128, 0.08);
+    --success: #34C759;
+    --warning: #FF9500;
+    --danger: #FF3B30;
+    --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14);
+  }
+}
+
+/* ─── Explicit dark override (post-JS, wins over media query) ────────── */
+[data-theme="dark"] {
+  --background: #000000;
+  --background-secondary: #1C1C1E;
+  --background-tertiary: #2C2C2E;
+  --surface: rgba(30, 30, 30, 0.88);
+  --surface-strong: rgba(44, 44, 46, 0.97);
+  --foreground: #FFFFFF;
+  --label-secondary: rgba(235, 235, 245, 0.6);
+  --label-tertiary: rgba(235, 235, 245, 0.3);
+  --muted: rgba(235, 235, 245, 0.6);
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-opaque: #38383A;
+  --line: rgba(84, 84, 88, 0.36);
+  --line-strong: rgba(84, 84, 88, 0.65);
+  --accent: #0A84FF;
+  --accent-soft: rgba(10, 132, 255, 0.15);
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-secondary: rgba(120, 120, 128, 0.32);
+  --fill-tertiary: rgba(118, 118, 128, 0.24);
+  --fill-quaternary: rgba(116, 116, 128, 0.18);
+  --success: #30D158;
+  --warning: #FF9F0A;
+  --danger: #FF453A;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Explicit light override (post-JS, wins over media query) ───────── */
+[data-theme="light"] {
+  --background: #F2F2F7;
+  --background-secondary: #FFFFFF;
+  --background-tertiary: #F2F2F7;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.97);
+  --foreground: #000000;
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary: rgba(60, 60, 67, 0.3);
+  --muted: rgba(60, 60, 67, 0.6);
+  --separator: rgba(60, 60, 67, 0.29);
+  --separator-opaque: #C6C6C8;
+  --line: rgba(60, 60, 67, 0.18);
+  --line-strong: rgba(60, 60, 67, 0.29);
+  --accent: #007AFF;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+  --fill-quaternary: rgba(116, 116, 128, 0.08);
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger: #FF3B30;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

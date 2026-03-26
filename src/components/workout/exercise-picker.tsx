@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
 import { useWorkout } from "@/lib/workout-context";
@@ -75,15 +75,27 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
         <div className="px-4 py-3">
           {/* Search */}
           <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--label-secondary)]" />
+            {!query && (
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--label-secondary)]" />
+            )}
             <input
               type="text"
               placeholder="Buscar ejercicio..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="ios-input pl-9"
+              className="ios-input"
+              style={query ? { paddingRight: "2.25rem" } : { paddingLeft: "2.25rem" }}
               autoFocus
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--label-tertiary)] active:opacity-60"
+              >
+                <X className="size-4" />
+              </button>
+            )}
           </div>
 
           {/* Results */}
