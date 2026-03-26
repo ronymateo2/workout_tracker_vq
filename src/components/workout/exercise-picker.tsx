@@ -85,7 +85,6 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
               onChange={(e) => setQuery(e.target.value)}
               className="ios-input"
               style={query ? { paddingRight: "2.25rem" } : { paddingLeft: "2.25rem" }}
-              autoFocus
             />
             {query && (
               <button
@@ -99,7 +98,7 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
           </div>
 
           {/* Results */}
-          <div className="max-h-[50dvh] overflow-y-auto scrollbar-none">
+          <div>
             {Object.keys(grouped).length === 0 ? (
               <div className="py-8 text-center">
                 <p className="mb-3 text-[14px] text-[var(--label-secondary)]">

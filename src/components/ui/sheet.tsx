@@ -87,7 +87,7 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto scrollbar-none">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
               {children}
             </div>
           </motion.div>
