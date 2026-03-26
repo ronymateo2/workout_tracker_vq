@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDB } from "./db";
 import type {
@@ -179,7 +180,13 @@ export async function pullFromSupabase(
 
 async function pushStore<T extends { id: string; _sync_status?: string }>(
   supabase: SupabaseClient,
-  storeName: "exercises" | "routines" | "routine_exercises" | "sessions" | "entries" | "sets",
+  storeName:
+    | "exercises"
+    | "routines"
+    | "routine_exercises"
+    | "sessions"
+    | "entries"
+    | "sets",
   tableName: string,
 ): Promise<void> {
   const db = await getDB();
@@ -188,11 +195,13 @@ async function pushStore<T extends { id: string; _sync_status?: string }>(
 
   for (const item of pending) {
     // Strip _sync_status before sending to Supabase
-    const { _sync_status, ...data } = item as T & { _sync_status?: string };
+    const { _sync_status, ...data } = item as unknown as T & {
+      _sync_status?: string;
+    };
     const { error } = await supabase.from(tableName).upsert(data);
 
     if (!error) {
-      await db.put(storeName, { ...item, _sync_status: "synced" } as T);
+      await db.put(storeName, { ...item, _sync_status: "synced" });
     } else {
       console.error(`Sync error for ${tableName}:`, error);
     }

@@ -14,7 +14,7 @@ interface RuranaDB extends DBSchema {
   exercises: {
     key: string;
     value: Exercise;
-    indexes: { "by-user": string | null };
+    indexes: { "by-user": string };
   };
   routines: {
     key: string;
@@ -53,7 +53,9 @@ export function getDB(): Promise<IDBPDatabase<RuranaDB>> {
   dbPromise = openDB<RuranaDB>("rurana-db", 1, {
     upgrade(db) {
       // exercises
-      const exerciseStore = db.createObjectStore("exercises", { keyPath: "id" });
+      const exerciseStore = db.createObjectStore("exercises", {
+        keyPath: "id",
+      });
       exerciseStore.createIndex("by-user", "user_id");
 
       // routines
@@ -61,7 +63,9 @@ export function getDB(): Promise<IDBPDatabase<RuranaDB>> {
       routineStore.createIndex("by-user", "user_id");
 
       // routine_exercises
-      const reStore = db.createObjectStore("routine_exercises", { keyPath: "id" });
+      const reStore = db.createObjectStore("routine_exercises", {
+        keyPath: "id",
+      });
       reStore.createIndex("by-routine", "routine_id");
 
       // sessions
