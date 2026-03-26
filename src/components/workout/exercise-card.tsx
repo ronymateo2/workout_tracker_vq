@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, MoreVertical, Trash2 } from "lucide-react";
 import { Check } from "lucide-react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate, useDragControls } from "framer-motion";
 import type { PanInfo } from "framer-motion";
 import clsx from "clsx";
 import type { WorkoutEntryWithDetails, WorkoutSet, ExerciseType, BandColor } from "@/types/models";
@@ -21,6 +21,7 @@ const BAND_COLOR_HEX: Record<BandColor, string> = {
 
 const BAND_COLORS = Object.entries(BAND_COLOR_HEX) as [BandColor, string][];
 const DELETE_WIDTH = 72;
+const SPRING = { type: "spring" as const, stiffness: 500, damping: 42 };
 
 // ─── Swipeable set row ────────────────────────────────────────────────────────
 
@@ -37,48 +38,75 @@ function SwipeableSetRow({
 }) {
   const x = useMotionValue(0);
   const deleteOpacity = useTransform(x, [-DELETE_WIDTH, -DELETE_WIDTH / 2], [1, 0]);
+  const deleteScale = useTransform(x, [-DELETE_WIDTH, 0], [1, 0.7]);
+  const dragControls = useDragControls();
+  const [isOpen, setIsOpen] = useState(false);
+  const isDragging = useRef(false);
+
+  function handleDragStart() {
+    isDragging.current = true;
+  }
 
   function handleDragEnd(_: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) {
+    isDragging.current = false;
     const shouldOpen = info.offset.x < -(DELETE_WIDTH / 2) || info.velocity.x < -300;
-    void animate(x, shouldOpen ? -DELETE_WIDTH : 0, { type: "spring", stiffness: 400, damping: 35 });
+    setIsOpen(shouldOpen);
+    void animate(x, shouldOpen ? -DELETE_WIDTH : 0, SPRING);
   }
 
   function close() {
-    void animate(x, 0, { type: "spring", stiffness: 400, damping: 35 });
+    setIsOpen(false);
+    void animate(x, 0, SPRING);
+  }
+
+  function startDrag(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest("input, button")) return;
+    dragControls.start(e);
   }
 
   return (
     <div className="relative mb-0.5 overflow-hidden rounded-[8px]">
-      {/* Delete button revealed on swipe */}
+      {/* Delete action */}
       <motion.div
-        style={{ opacity: deleteOpacity }}
+        style={{ opacity: deleteOpacity, pointerEvents: isOpen ? "auto" : "none" }}
         className="absolute inset-y-0 right-0 flex w-[72px] items-center justify-center bg-[var(--danger)]"
       >
         <button
           type="button"
           onClick={() => { close(); onDelete(); }}
-          className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-white tap-highlight-transparent"
+          className="flex h-full w-full flex-col items-center justify-center gap-0.5 tap-highlight-transparent"
         >
-          Borrar
+          <motion.span style={{ scale: deleteScale }} className="flex flex-col items-center gap-0.5">
+            <Trash2 className="size-4 text-white" />
+            <span className="text-[11px] font-semibold text-white">Borrar</span>
+          </motion.span>
         </button>
       </motion.div>
 
-      {/* Row content — motion handles the slide, inner div handles the grid */}
+      {/* Row content */}
       <motion.div
         style={{ x }}
         drag="x"
+        dragControls={dragControls}
+        dragListener={false}
         dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
-        dragElastic={{ left: 0.05, right: 0.05 }}
+        dragElastic={{ left: 0.12, right: 0.25 }}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <div
+          onPointerDown={startDrag}
           className={clsx(
-            "grid items-center gap-1 py-1.5",
+            "relative grid items-center gap-1 py-1.5",
             completed ? "bg-[var(--accent-soft)]" : "bg-[var(--background-secondary)]",
           )}
           style={{ gridTemplateColumns: template }}
         >
           {children}
+          {/* Overlay: captura toques para cerrar el panel cuando está abierto */}
+          {isOpen && (
+            <div className="absolute inset-0" onClick={close} />
+          )}
         </div>
       </motion.div>
     </div>
@@ -204,6 +232,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                   inputMode="decimal"
                   placeholder="kg"
                   value={set.band_resistance ?? ""}
+
                   onChange={(e) => handleInputChange(set.id, "band_resistance", e.target.value)}
                   className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
                 />
@@ -212,6 +241,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                   inputMode="numeric"
                   placeholder="0"
                   value={set.reps ?? ""}
+
                   onChange={(e) => handleInputChange(set.id, "reps", e.target.value)}
                   className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
                 />
@@ -224,6 +254,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                   inputMode="decimal"
                   placeholder={f.placeholder}
                   value={(set[f.key as keyof WorkoutSet] as number | null) ?? ""}
+
                   onChange={(e) => handleInputChange(set.id, f.key as keyof WorkoutSet, e.target.value)}
                   className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
                 />
@@ -234,6 +265,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
             <div className="flex justify-center">
               <button
                 type="button"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => void toggleSet(set.id)}
                 className={clsx(
                   "flex size-7 items-center justify-center rounded-[6px] tap-highlight-transparent",
