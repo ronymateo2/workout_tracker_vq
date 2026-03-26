@@ -31,9 +31,9 @@ export function ActiveWorkout() {
   }
 
   return (
-    <div className="safe-top flex min-h-screen flex-col">
+    <div className="fixed inset-0 z-40 flex flex-col bg-[var(--background)]">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--background)] px-4 pb-3 pt-2">
+      <div className="safe-top shrink-0 border-b border-[var(--line)] px-4 pb-3">
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
@@ -75,7 +75,7 @@ export function ActiveWorkout() {
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 space-y-3 px-4 py-4">
+      <div className="flex-1 overflow-y-auto space-y-3 px-4 py-4 pb-24">
         {entries.map((entry) => (
           <ExerciseCard
             key={entry.id}
