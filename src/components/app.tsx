@@ -132,7 +132,7 @@ function AuthenticatedApp({
   const [activeTab, setActiveTab] = useState<TabId>("workout");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex flex-1 flex-col">
       {/* Tab content */}
       <main className="flex-1 pb-20">
         {activeTab === "home" && <HomeTab />}

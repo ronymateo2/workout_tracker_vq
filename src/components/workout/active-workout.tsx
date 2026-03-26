@@ -84,17 +84,14 @@ export function ActiveWorkout() {
         ))}
 
         {/* Add Exercise button */}
-        <div className="flex justify-center">
-          <Button
-            variant="primary"
-            size="lg"
-            className="!w-auto px-8"
-            onClick={() => setShowExercisePicker(true)}
-          >
-            <Plus className="size-5" />
-            Agregar Ejercicio
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => setShowExercisePicker(true)}
+        >
+          <Plus className="size-5" />
+          Agregar Ejercicio
+        </Button>
       </div>
 
       {/* Exercise Picker */}

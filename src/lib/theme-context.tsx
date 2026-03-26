@@ -10,7 +10,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => {},
 });
 
@@ -19,16 +19,13 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
 
-  // On mount: read stored preference or fall back to OS preference
+  // On mount: read stored preference, default to light
   useEffect(() => {
     const stored = localStorage.getItem("rurana-theme") as Theme | null;
     if (stored === "light" || stored === "dark") {
       setTheme(stored);
-    } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
     }
   }, []);
 

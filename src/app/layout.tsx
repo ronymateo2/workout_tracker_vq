@@ -46,8 +46,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {children}
+      <body className="min-h-full" suppressHydrationWarning>
+        <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col overflow-x-hidden bg-[var(--background)] sm:shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_4px_48px_rgba(0,0,0,0.12)]">
+          {children}
+        </div>
       </body>
     </html>
   );

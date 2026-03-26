@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, MoreVertical, Trash2 } from "lucide-react";
-import { Check } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Check } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate, useDragControls } from "framer-motion";
 import type { PanInfo } from "framer-motion";
 import clsx from "clsx";
@@ -22,6 +21,30 @@ const BAND_COLOR_HEX: Record<BandColor, string> = {
 const BAND_COLORS = Object.entries(BAND_COLOR_HEX) as [BandColor, string][];
 const DELETE_WIDTH = 72;
 const SPRING = { type: "spring" as const, stiffness: 500, damping: 42 };
+
+// ─── Previous performance formatter ──────────────────────────────────────────
+
+function formatPrevious(set: WorkoutSet | undefined, type: ExerciseType): string {
+  if (!set) return "—";
+  switch (type) {
+    case "weight_reps":
+      return set.weight_kg && set.reps ? `${set.weight_kg}kg × ${set.reps}` : "—";
+    case "bodyweight_reps":
+      return set.reps ? `${set.reps} reps` : "—";
+    case "duration":
+      return set.duration_seconds ? `${set.duration_seconds}s` : "—";
+    case "duration_weight":
+      return set.weight_kg && set.duration_seconds ? `${set.weight_kg}kg × ${set.duration_seconds}s` : "—";
+    case "distance_duration":
+      return set.distance_m && set.duration_seconds ? `${set.distance_m}m × ${set.duration_seconds}s` : "—";
+    case "weight_distance":
+      return set.weight_kg && set.distance_m ? `${set.weight_kg}kg × ${set.distance_m}m` : "—";
+    case "bands":
+      return set.band_color && set.reps ? `${BAND_COLOR_LABELS[set.band_color]} × ${set.reps}` : "—";
+    default:
+      return "—";
+  }
+}
 
 // ─── Swipeable set row ────────────────────────────────────────────────────────
 
@@ -60,12 +83,12 @@ function SwipeableSetRow({
   }
 
   function startDrag(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest("input, button")) return;
+    if ((e.target as HTMLElement).closest("input, button, select")) return;
     dragControls.start(e);
   }
 
   return (
-    <div className="relative mb-0.5 overflow-hidden rounded-[8px]">
+    <div className="relative overflow-hidden">
       {/* Delete action */}
       <motion.div
         style={{ opacity: deleteOpacity, pointerEvents: isOpen ? "auto" : "none" }}
@@ -97,13 +120,12 @@ function SwipeableSetRow({
         <div
           onPointerDown={startDrag}
           className={clsx(
-            "relative grid items-center gap-1 py-1.5",
-            completed ? "bg-[var(--accent-soft)]" : "bg-[var(--background-secondary)]",
+            "relative grid items-center gap-x-2 py-1.5",
+            completed && "bg-[var(--accent-soft)]",
           )}
           style={{ gridTemplateColumns: template }}
         >
           {children}
-          {/* Overlay: captura toques para cerrar el panel cuando está abierto */}
           {isOpen && (
             <div className="absolute inset-0" onClick={close} />
           )}
@@ -120,9 +142,10 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ entry }: ExerciseCardProps) {
-  const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkout();
+  const { addSet, updateSet, toggleSet, removeSet, removeExercise, previousSets } = useWorkout();
   const [showMenu, setShowMenu] = useState(false);
   const type = entry.exercise.exercise_type;
+  const prevSets = previousSets[entry.exercise_id] ?? [];
 
   const handleInputChange = (
     setId: string,
@@ -136,10 +159,10 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
   const columns = getColumns(type);
 
   return (
-    <div className="rounded-[16px] bg-[var(--background-secondary)] p-4">
+    <div className="overflow-hidden rounded-[16px] bg-[var(--background-secondary)]">
       {/* Header */}
-      <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-[16px] font-semibold text-[var(--accent)]">
+      <div className="flex items-center justify-between px-4 pb-1 pt-4">
+        <h3 className="text-[17px] font-semibold text-[var(--foreground)]">
           {entry.exercise.name}
         </h3>
         <div className="relative">
@@ -172,25 +195,27 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
       </div>
 
       {/* Sets table */}
-      <div className="mt-2">
+      <div className="px-4 pb-0">
         {/* Header row */}
         <div
-          className="mb-1 grid items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-[var(--label-secondary)]"
+          className="mb-0.5 grid items-center gap-x-2 text-[11px] font-medium text-[var(--label-secondary)]"
           style={{ gridTemplateColumns: columns.template }}
         >
-          <span className="text-center">SET</span>
+          <span className="text-center">Set</span>
+          <span>Anterior</span>
           {type === "bands" ? (
             <>
-              <span className="text-center">COLOR</span>
-              <span className="text-center">KG</span>
-              <span className="text-center">REPS</span>
+              <span className="text-center">Banda</span>
+              <span className="text-center">Reps</span>
             </>
           ) : (
             columns.fields.map((f) => (
               <span key={f.key} className="text-center">{f.label}</span>
             ))
           )}
-          <span className="text-center" />
+          <div className="flex justify-center">
+            <Check className="size-3.5" strokeWidth={2.5} />
+          </div>
         </div>
 
         {/* Set rows */}
@@ -201,49 +226,62 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
             template={columns.template}
             onDelete={() => void removeSet(set.id)}
           >
-            {/* Set number */}
-            <span className={clsx(
-              "text-center text-[14px] font-bold",
-              set.completed ? "text-[var(--accent)]" : "text-[var(--label-secondary)]"
-            )}>
-              {idx + 1}
+            {/* Set number badge */}
+            <div className="flex justify-center">
+              <span className={clsx(
+                "flex size-6 items-center justify-center rounded-full text-[12px] font-bold",
+                set.completed
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--fill-tertiary)] text-[var(--label-secondary)]",
+              )}>
+                {idx + 1}
+              </span>
+            </div>
+
+            {/* Previous performance */}
+            <span className="truncate text-[12px] text-[var(--label-secondary)]">
+              {formatPrevious(prevSets[idx], type)}
             </span>
 
             {/* Dynamic inputs */}
             {type === "bands" ? (
               <>
-                <div className="flex items-center justify-center gap-0.5">
-                  {BAND_COLORS.map(([color, hex]) => (
-                    <button
-                      key={color}
-                      type="button"
-                      aria-label={BAND_COLOR_LABELS[color]}
-                      onClick={() => void updateSet(set.id, { band_color: color })}
-                      className={clsx(
-                        "size-4 rounded-full tap-highlight-transparent transition-transform active:scale-90",
-                        set.band_color === color && "ring-2 ring-white ring-offset-1 ring-offset-[var(--background-secondary)]",
-                      )}
-                      style={{ backgroundColor: hex }}
+                <div className="flex items-center justify-center">
+                  <div className={clsx(
+                    "flex items-center gap-1.5 rounded-[8px] px-2 py-1.5",
+                    set.completed
+                      ? "bg-transparent"
+                      : "bg-[var(--fill-quaternary)]",
+                  )}>
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: BAND_COLOR_HEX[set.band_color ?? "yellow"] }}
                     />
-                  ))}
+                    <select
+                      value={set.band_color ?? "yellow"}
+                      onChange={(e) => void updateSet(set.id, { band_color: e.target.value as BandColor })}
+                      className="appearance-none bg-transparent text-[12px] font-semibold text-[var(--foreground)] outline-none"
+                    >
+                      {BAND_COLORS.map(([color]) => (
+                        <option key={color} value={color}>
+                          {BAND_COLOR_LABELS[color]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="kg"
-                  value={set.band_resistance ?? ""}
-
-                  onChange={(e) => handleInputChange(set.id, "band_resistance", e.target.value)}
-                  className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
-                />
                 <input
                   type="number"
                   inputMode="numeric"
                   placeholder="0"
                   value={set.reps ?? ""}
-
                   onChange={(e) => handleInputChange(set.id, "reps", e.target.value)}
-                  className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
+                  className={clsx(
+                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none",
+                    set.completed
+                      ? "bg-transparent text-[var(--label-secondary)]"
+                      : "bg-[var(--fill-quaternary)]",
+                  )}
                 />
               </>
             ) : (
@@ -254,27 +292,34 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                   inputMode="decimal"
                   placeholder={f.placeholder}
                   value={(set[f.key as keyof WorkoutSet] as number | null) ?? ""}
-
                   onChange={(e) => handleInputChange(set.id, f.key as keyof WorkoutSet, e.target.value)}
-                  className="w-full rounded-[8px] bg-[var(--fill-quaternary)] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none focus:bg-[var(--fill-tertiary)]"
+                  className={clsx(
+                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold outline-none",
+                    set.completed
+                      ? "bg-transparent text-[var(--label-secondary)]"
+                      : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
+                  )}
                 />
               ))
             )}
 
-            {/* Complete checkmark */}
+            {/* Complete toggle */}
             <div className="flex justify-center">
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => void toggleSet(set.id)}
                 className={clsx(
-                  "flex size-7 items-center justify-center rounded-[6px] tap-highlight-transparent",
+                  "flex size-7 items-center justify-center rounded-full border-2 tap-highlight-transparent transition-colors",
                   set.completed
-                    ? "bg-[var(--success)] text-white"
-                    : "bg-[var(--fill-tertiary)] text-[var(--label-secondary)]",
+                    ? "border-[var(--success)] bg-[var(--success)]"
+                    : "border-[var(--separator)] bg-transparent",
                 )}
               >
-                <Check className="size-4" strokeWidth={2.5} />
+                <Check
+                  className={clsx("size-4", set.completed ? "text-white" : "text-transparent")}
+                  strokeWidth={2.5}
+                />
               </button>
             </div>
           </SwipeableSetRow>
@@ -285,7 +330,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
       <button
         type="button"
         onClick={() => void addSet(entry.id)}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-[var(--fill-quaternary)] py-2.5 text-[13px] font-medium text-[var(--foreground)] tap-highlight-transparent active:opacity-80"
+        className="flex w-full items-center justify-center gap-1.5 py-3 text-[13px] font-medium text-[var(--accent)] tap-highlight-transparent active:opacity-60"
       >
         <Plus className="size-4" />
         Agregar Serie
@@ -311,41 +356,41 @@ function getColumns(type: ExerciseType): ColumnConfig {
   switch (type) {
     case "weight_reps":
       return {
-        template: "36px 1fr 1fr 36px",
+        template: "28px 1fr 56px 56px 32px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
-          { key: "reps", label: "REPS", placeholder: "0" },
+          { key: "reps", label: "Reps", placeholder: "0" },
         ],
       };
     case "bodyweight_reps":
       return {
-        template: "36px 1fr 36px",
-        fields: [{ key: "reps", label: "REPS", placeholder: "0" }],
+        template: "28px 1fr 64px 32px",
+        fields: [{ key: "reps", label: "Reps", placeholder: "0" }],
       };
     case "duration":
       return {
-        template: "36px 1fr 36px",
-        fields: [{ key: "duration_seconds", label: "SEG", placeholder: "0" }],
+        template: "28px 1fr 64px 32px",
+        fields: [{ key: "duration_seconds", label: "Seg", placeholder: "0" }],
       };
     case "duration_weight":
       return {
-        template: "36px 1fr 1fr 36px",
+        template: "28px 1fr 56px 56px 32px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
-          { key: "duration_seconds", label: "SEG", placeholder: "0" },
+          { key: "duration_seconds", label: "Seg", placeholder: "0" },
         ],
       };
     case "distance_duration":
       return {
-        template: "36px 1fr 1fr 36px",
+        template: "28px 1fr 56px 56px 32px",
         fields: [
           { key: "distance_m", label: "M", placeholder: "0" },
-          { key: "duration_seconds", label: "SEG", placeholder: "0" },
+          { key: "duration_seconds", label: "Seg", placeholder: "0" },
         ],
       };
     case "weight_distance":
       return {
-        template: "36px 1fr 1fr 36px",
+        template: "28px 1fr 56px 56px 32px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "distance_m", label: "M", placeholder: "0" },
@@ -353,15 +398,15 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bands":
       return {
-        template: "36px 1fr 1fr 1fr 36px",
+        template: "28px 1fr 110px 56px 32px",
         fields: [],
       };
     default:
       return {
-        template: "36px 1fr 1fr 36px",
+        template: "28px 1fr 56px 56px 32px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
-          { key: "reps", label: "REPS", placeholder: "0" },
+          { key: "reps", label: "Reps", placeholder: "0" },
         ],
       };
   }

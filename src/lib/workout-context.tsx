@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,6 +27,7 @@ import {
   getSetsForEntry,
   getExerciseById,
   getRoutineWithExercises,
+  getPreviousSetsForExercise,
 } from "./data";
 import { useData } from "./data-context";
 
@@ -60,6 +62,7 @@ function clearStorage() {
 interface WorkoutContextValue {
   activeSession: WorkoutSession | null;
   entries: WorkoutEntryWithDetails[];
+  previousSets: Record<string, WorkoutSet[]>;
   loading: boolean;
   startWorkout: (routineId?: string) => Promise<void>;
   addExercise: (exercise: Exercise) => Promise<void>;
@@ -75,6 +78,7 @@ interface WorkoutContextValue {
 const WorkoutContext = createContext<WorkoutContextValue>({
   activeSession: null,
   entries: [],
+  previousSets: {},
   loading: true,
   startWorkout: async () => {},
   addExercise: async () => {},
@@ -103,7 +107,9 @@ export function WorkoutProvider({
   const { supabase } = useData();
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
+  const [previousSets, setPreviousSets] = useState<Record<string, WorkoutSet[]>>({});
   const [loading, setLoading] = useState(true);
+  const prevSetsCache = useRef<Record<string, WorkoutSet[]>>({});
 
   // Helper: update state + localStorage atomically
   const commit = useCallback(
@@ -152,6 +158,25 @@ export function WorkoutProvider({
     })();
   }, [userId, supabase]);
 
+  // ── Load previous sets whenever entries change ────────────────────────────
+  useEffect(() => {
+    if (!supabase || entries.length === 0) return;
+    const exerciseIds = [...new Set(entries.map((e) => e.exercise_id))];
+    const uncached = exerciseIds.filter((id) => !(id in prevSetsCache.current));
+    if (uncached.length === 0) return;
+    void (async () => {
+      const fetched: Record<string, WorkoutSet[]> = {};
+      await Promise.all(
+        uncached.map(async (exerciseId) => {
+          const sets = await getPreviousSetsForExercise(supabase!, userId, exerciseId);
+          fetched[exerciseId] = sets;
+        }),
+      );
+      prevSetsCache.current = { ...prevSetsCache.current, ...fetched };
+      setPreviousSets({ ...prevSetsCache.current });
+    })();
+  }, [entries, supabase, userId]);
+
   // ── startWorkout ──────────────────────────────────────────────────────────
   const startWorkout = useCallback(
     async (routineId?: string) => {
@@ -174,6 +199,7 @@ export function WorkoutProvider({
         if (routine) {
           for (const re of routine.exercises) {
             const entryId = crypto.randomUUID();
+            const isBands = re.exercise.exercise_type === "bands";
             const sets: WorkoutSet[] = Array.from({ length: re.default_sets }, (_, i) => ({
               id: crypto.randomUUID(),
               entry_id: entryId,
@@ -182,7 +208,7 @@ export function WorkoutProvider({
               reps: null,
               duration_seconds: null,
               distance_m: null,
-              band_color: null,
+              band_color: isBands ? "yellow" : null,
               band_resistance: null,
               completed: false,
             }));
@@ -224,7 +250,7 @@ export function WorkoutProvider({
             reps: null,
             duration_seconds: null,
             distance_m: null,
-            band_color: null,
+            band_color: exercise.exercise_type === "bands" ? "yellow" : null,
             band_resistance: null,
             completed: false,
           },
@@ -250,6 +276,8 @@ export function WorkoutProvider({
       if (!activeSession) return;
       const next = entries.map((entry) => {
         if (entry.id !== entryId) return entry;
+        const isBands = entry.exercise.exercise_type === "bands";
+        const lastSet = entry.sets[entry.sets.length - 1];
         const newSet: WorkoutSet = {
           id: crypto.randomUUID(),
           entry_id: entryId,
@@ -258,7 +286,7 @@ export function WorkoutProvider({
           reps: null,
           duration_seconds: null,
           distance_m: null,
-          band_color: null,
+          band_color: isBands ? (lastSet?.band_color ?? "yellow") : null,
           band_resistance: null,
           completed: false,
         };
@@ -341,6 +369,7 @@ export function WorkoutProvider({
       value={{
         activeSession,
         entries,
+        previousSets,
         loading,
         startWorkout,
         addExercise,
