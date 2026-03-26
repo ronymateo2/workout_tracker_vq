@@ -76,7 +76,8 @@ export async function getRoutinesWithExerciseNames(
 
   const namesByRoutine: Record<string, string[]> = {};
   for (const row of reRows ?? []) {
-    const name = (row.exercise_library as { name: string } | null)?.name;
+    const name = (row.exercise_library as unknown as { name: string } | null)
+      ?.name;
     if (!name) continue;
     if (!namesByRoutine[row.routine_id]) namesByRoutine[row.routine_id] = [];
     namesByRoutine[row.routine_id].push(name);
@@ -113,7 +114,9 @@ export async function getRoutineWithExercises(
       .eq("id", re.exercise_id)
       .maybeSingle();
     if (exercise) {
-      exercises.push({ ...re, exercise } as RoutineExercise & { exercise: Exercise });
+      exercises.push({ ...re, exercise } as RoutineExercise & {
+        exercise: Exercise;
+      });
     }
   }
 
@@ -141,7 +144,10 @@ export async function updateRoutine(
     .update({ name: routine.name, updated_at: new Date().toISOString() })
     .eq("id", routine.id);
 
-  await supabase.from("routine_exercises").delete().eq("routine_id", routine.id);
+  await supabase
+    .from("routine_exercises")
+    .delete()
+    .eq("routine_id", routine.id);
   if (exercises.length > 0) {
     await supabase.from("routine_exercises").insert(exercises);
   }
@@ -179,10 +185,7 @@ export async function updateSessionNotes(
   sessionId: string,
   notes: string,
 ): Promise<void> {
-  await supabase
-    .from("workout_sessions")
-    .update({ notes })
-    .eq("id", sessionId);
+  await supabase.from("workout_sessions").update({ notes }).eq("id", sessionId);
 }
 
 export async function deleteWorkoutSession(
@@ -301,7 +304,11 @@ export async function getRecentWorkouts(
           .select("*")
           .eq("entry_id", entry.id)
           .order("position");
-        return { ...entry, exercise: exercise!, sets: (sets ?? []) as WorkoutSet[] };
+        return {
+          ...entry,
+          exercise: exercise!,
+          sets: (sets ?? []) as WorkoutSet[],
+        };
       }),
     );
 
