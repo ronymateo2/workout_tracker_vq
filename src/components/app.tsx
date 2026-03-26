@@ -1,15 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { Dumbbell, LoaderCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
+import { DataProvider } from "@/lib/data-context";
+import { WorkoutProvider } from "@/lib/workout-context";
+import { TabBar, type TabId } from "./tab-bar";
+import { HomeTab } from "./tabs/home-tab";
+import { WorkoutTab } from "./tabs/workout-tab";
+import { ProfileTab } from "./tabs/profile-tab";
 
 export function App() {
-  const { user, status, signInWithGoogle, signOut } = useAuth();
+  const { user, supabaseToken, status, signInWithGoogle, signOut } = useAuth();
 
   /* ─── Loading ─────────────────────────────────────────────────────── */
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--accent)] text-white">
             <Dumbbell className="size-6" />
@@ -21,12 +28,12 @@ export function App() {
   }
 
   /* ─── Login ───────────────────────────────────────────────────────── */
-  if (!user) {
+  if (!user || !supabaseToken) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--background)] px-5 py-12">
+      <div className="flex min-h-screen flex-col items-center justify-center px-5 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex size-16 items-center justify-center rounded-[20px] bg-[var(--accent)] shadow-[0_8px_24px_rgba(0,122,255,0.35)] text-white">
+            <div className="flex size-16 items-center justify-center rounded-[20px] bg-[var(--accent)] shadow-[0_8px_24px_rgba(10,132,255,0.35)] text-white">
               <Dumbbell className="size-8" />
             </div>
             <div className="text-center">
@@ -45,7 +52,7 @@ export function App() {
             <button
               type="button"
               onClick={() => void signInWithGoogle()}
-              className="flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-[var(--foreground)] px-5 py-4 text-[16px] font-semibold text-white transition active:opacity-80"
+              className="flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-[var(--foreground)] px-5 py-4 text-[16px] font-semibold text-[var(--background)] transition active:opacity-80"
             >
               <svg className="size-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -62,27 +69,38 @@ export function App() {
   }
 
   /* ─── Authenticated ───────────────────────────────────────────────── */
-  const firstName = user.fullName?.split(" ")[0] ?? user.email ?? "Tú";
+  return (
+    <DataProvider supabaseToken={supabaseToken} userId={user.id}>
+      <WorkoutProvider userId={user.id}>
+        <AuthenticatedApp user={user} onSignOut={signOut} />
+      </WorkoutProvider>
+    </DataProvider>
+  );
+}
+
+// ─── Inner app (avoids re-renders from auth state) ───────────────────────────
+
+function AuthenticatedApp({
+  user,
+  onSignOut,
+}: {
+  user: { id: string; email: string; fullName: string | null; avatarUrl: string | null };
+  onSignOut: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<TabId>("workout");
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--background)] px-5">
-      <div className="w-full max-w-sm text-center">
-        <div className="mb-6 flex justify-center">
-          <div className="flex size-16 items-center justify-center rounded-[20px] bg-[var(--accent)] text-white">
-            <Dumbbell className="size-8" />
-          </div>
-        </div>
-        <h1 className="text-[24px] font-bold tracking-tight">Hola, {firstName}</h1>
-        <p className="mt-2 text-[15px] text-[var(--muted)]">Sesión iniciada.</p>
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="mt-8 flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--fill-tertiary)] px-5 py-4 text-[15px] font-medium text-[var(--muted)] transition active:opacity-70"
-        >
-          <LogOut className="size-4" />
-          Cerrar sesión
-        </button>
-      </div>
+    <div className="flex min-h-screen flex-col">
+      {/* Tab content */}
+      <main className="flex-1 pb-20">
+        {activeTab === "home" && <HomeTab />}
+        {activeTab === "workout" && <WorkoutTab />}
+        {activeTab === "profile" && (
+          <ProfileTab user={user} onSignOut={onSignOut} />
+        )}
+      </main>
+
+      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
