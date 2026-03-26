@@ -108,7 +108,7 @@ export function CreateExercise({
             onChange={(e) => setName(e.target.value)}
             placeholder="Nombre del ejercicio"
             className="ios-input"
-            autoFocus
+
           />
         </div>
 

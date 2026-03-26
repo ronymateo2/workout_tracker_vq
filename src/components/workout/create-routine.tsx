@@ -84,7 +84,7 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre de la rutina"
               className="w-full border-b border-[var(--line)] bg-transparent pb-2 text-[20px] font-bold text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
-              autoFocus
+
             />
           </div>
 
