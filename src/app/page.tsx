@@ -1,5 +1,5 @@
-import { WorkoutTrackerApp } from "@/components/workout-tracker-app";
+import { App } from "@/components/app";
 
 export default function Home() {
-  return <WorkoutTrackerApp />;
+  return <App />;
 }

@@ -17,8 +17,6 @@ Auth: Google OAuth via Supabase.
 - **Supabase JS** ^2.100.0
 - **Framer Motion** ^12.38.0
 - **Lucide React** ^1.6.0
-- **idb** ^8.0.3 (IndexedDB wrapper)
-
 ---
 
 ## Directory Structure
