@@ -5,14 +5,10 @@ export const runtime = "nodejs";
 export async function GET() {
   const body = `
 const VERSION = ${JSON.stringify(swVersion)};
-const APP_CACHE = "rurana-shell-" + VERSION;
-const RUNTIME_CACHE = "rurana-runtime-" + VERSION;
-const CORE_ROUTES = ["/", "/manifest.webmanifest"];
+const CACHE = "rurana-static-" + VERSION;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(APP_CACHE).then((cache) => cache.addAll(CORE_ROUTES)).catch(() => undefined),
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -22,7 +18,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith("rurana-") && key !== APP_CACHE && key !== RUNTIME_CACHE)
+            .filter((key) => key.startsWith("rurana-") && key !== CACHE)
             .map((key) => caches.delete(key)),
         ),
       )
@@ -39,20 +35,11 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
-  if (request.method !== "GET") {
-    return;
-  }
+  if (request.method !== "GET") return;
 
   const url = new URL(request.url);
 
-  if (url.origin !== self.location.origin) {
-    return;
-  }
-
-  if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request, APP_CACHE));
-    return;
-  }
+  if (url.origin !== self.location.origin) return;
 
   if (
     url.pathname.startsWith("/_next/static/") ||
@@ -62,32 +49,12 @@ self.addEventListener("fetch", (event) => {
     request.destination === "image" ||
     request.destination === "font"
   ) {
-    event.respondWith(staleWhileRevalidate(request, RUNTIME_CACHE));
+    event.respondWith(staleWhileRevalidate(request));
   }
 });
 
-async function networkFirst(request, cacheName) {
-  try {
-    const fresh = await fetch(request);
-
-    if (fresh.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, fresh.clone());
-    }
-
-    return fresh;
-  } catch (error) {
-    const cached = await caches.match(request);
-    if (cached) {
-      return cached;
-    }
-
-    return caches.match("/");
-  }
-}
-
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE);
   const cached = await cache.match(request);
 
   const revalidate = fetch(request)
@@ -95,7 +62,6 @@ async function staleWhileRevalidate(request, cacheName) {
       if (response.ok) {
         cache.put(request, response.clone());
       }
-
       return response;
     })
     .catch(() => cached);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
+import { useData } from "@/lib/data-context";
 import { getWorkoutCount } from "@/lib/data";
 import { TrainingCalendar } from "@/components/profile/training-calendar";
 
@@ -16,12 +17,14 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
+  const { supabase } = useData();
   const [workoutCount, setWorkoutCount] = useState(0);
 
   const loadStats = useCallback(async () => {
-    const count = await getWorkoutCount(user.id);
+    if (!supabase) return;
+    const count = await getWorkoutCount(supabase, user.id);
     setWorkoutCount(count);
-  }, [user.id]);
+  }, [user.id, supabase]);
 
   useEffect(() => {
     loadStats();

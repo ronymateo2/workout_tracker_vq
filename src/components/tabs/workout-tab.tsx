@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, ClipboardList, Search, Dumbbell } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useWorkout } from "@/lib/workout-context";
+import { useData } from "@/lib/data-context";
 import { getRoutines } from "@/lib/data";
 import type { Routine } from "@/types/models";
 import { Button } from "@/components/ui/button";
@@ -14,16 +15,17 @@ import { RoutineDetail } from "@/components/workout/routine-detail";
 
 export function WorkoutTab() {
   const { user } = useAuth();
+  const { supabase } = useData();
   const { activeSession, startWorkout } = useWorkout();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
 
   const loadRoutines = useCallback(async () => {
-    if (!user) return;
-    const r = await getRoutines(user.id);
+    if (!user || !supabase) return;
+    const r = await getRoutines(supabase, user.id);
     setRoutines(r);
-  }, [user]);
+  }, [user, supabase]);
 
   useEffect(() => {
     loadRoutines();

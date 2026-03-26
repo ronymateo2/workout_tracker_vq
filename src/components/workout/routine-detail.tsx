@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Play, Trash2 } from "lucide-react";
+import { useData } from "@/lib/data-context";
 import { getRoutineWithExercises, deleteRoutine } from "@/lib/data";
 import type { RoutineWithExercises } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
@@ -22,19 +23,22 @@ export function RoutineDetail({
   onDeleted,
   onStartWorkout,
 }: RoutineDetailProps) {
+  const { supabase } = useData();
   const [routine, setRoutine] = useState<RoutineWithExercises | null>(null);
 
   const load = useCallback(async () => {
-    const r = await getRoutineWithExercises(routineId);
+    if (!supabase) return;
+    const r = await getRoutineWithExercises(supabase, routineId);
     setRoutine(r);
-  }, [routineId]);
+  }, [routineId, supabase]);
 
   useEffect(() => {
     if (open) load();
   }, [open, load]);
 
   const handleDelete = async () => {
-    await deleteRoutine(routineId);
+    if (!supabase) return;
+    await deleteRoutine(supabase, routineId);
     onDeleted();
   };
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { useWorkout } from "@/lib/workout-context";
 import { useAuth } from "@/lib/auth-client";
+import { useData } from "@/lib/data-context";
 import { getPreviousSetsForExercise } from "@/lib/data";
 import type { WorkoutSet } from "@/types/models";
 import { Button } from "@/components/ui/button";
@@ -13,24 +14,26 @@ import { ExercisePicker } from "./exercise-picker";
 
 export function ActiveWorkout() {
   const { user } = useAuth();
+  const { supabase } = useData();
   const { activeSession, entries, finishWorkout, discardWorkout } = useWorkout();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [previousSetsMap, setPreviousSetsMap] = useState<Record<string, WorkoutSet[]>>({});
 
   // Load previous sets for all exercises
   const loadPreviousSets = useCallback(async () => {
-    if (!user) return;
+    if (!user || !supabase) return;
     const map: Record<string, WorkoutSet[]> = {};
     for (const entry of entries) {
       if (!map[entry.exercise_id]) {
         map[entry.exercise_id] = await getPreviousSetsForExercise(
+          supabase,
           user.id,
           entry.exercise_id,
         );
       }
     }
     setPreviousSetsMap(map);
-  }, [user, entries]);
+  }, [user, supabase, entries]);
 
   useEffect(() => {
     loadPreviousSets();

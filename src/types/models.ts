@@ -33,8 +33,6 @@ export type BandColor =
   | "green"
   | "blue";
 
-export type SyncStatus = "synced" | "pending";
-
 // ─── Domain Interfaces ───────────────────────────────────────────────────────
 
 export interface Exercise {
@@ -45,7 +43,6 @@ export interface Exercise {
   unilateral: boolean;
   muscle_groups: MuscleGroup[];
   created_at: string;
-  _sync_status?: SyncStatus;
 }
 
 export interface Routine {
@@ -54,7 +51,6 @@ export interface Routine {
   name: string;
   created_at: string;
   updated_at: string;
-  _sync_status?: SyncStatus;
 }
 
 export interface RoutineExercise {
@@ -63,7 +59,6 @@ export interface RoutineExercise {
   exercise_id: string;
   position: number;
   default_sets: number;
-  _sync_status?: SyncStatus;
 }
 
 export interface WorkoutSession {
@@ -73,7 +68,6 @@ export interface WorkoutSession {
   started_at: string;
   finished_at: string | null;
   notes: string | null;
-  _sync_status?: SyncStatus;
 }
 
 export interface WorkoutEntry {
@@ -81,7 +75,6 @@ export interface WorkoutEntry {
   session_id: string;
   exercise_id: string;
   position: number;
-  _sync_status?: SyncStatus;
 }
 
 export interface WorkoutSet {
@@ -95,7 +88,6 @@ export interface WorkoutSet {
   band_color: BandColor | null;
   band_resistance: number | null;
   completed: boolean;
-  _sync_status?: SyncStatus;
 }
 
 // ─── Composite Types (for UI) ────────────────────────────────────────────────

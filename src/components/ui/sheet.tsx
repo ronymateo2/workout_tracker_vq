@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface SheetProps {
@@ -11,6 +11,8 @@ interface SheetProps {
 }
 
 export function Sheet({ open, onClose, children, title }: SheetProps) {
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
   // Prevent body scroll when open
   useEffect(() => {
     if (open) {
@@ -19,6 +21,31 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
         document.body.style.overflow = "";
       };
     }
+  }, [open]);
+
+  // Track visual viewport to keep sheet above keyboard
+  useEffect(() => {
+    if (!open) {
+      setKeyboardOffset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      const offset = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardOffset(Math.max(0, offset));
+    };
+
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    update();
+
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      setKeyboardOffset(0);
+    };
   }, [open]);
 
   return (
@@ -41,7 +68,8 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[61] flex max-h-[92vh] flex-col rounded-t-[20px] bg-[var(--background-secondary)]"
+            style={{ bottom: keyboardOffset }}
+            className="fixed inset-x-0 top-[8dvh] z-[61] flex flex-col rounded-t-[20px] bg-[var(--background-secondary)]"
           >
             {/* Handle */}
             <div className="flex shrink-0 justify-center pt-2 pb-1">

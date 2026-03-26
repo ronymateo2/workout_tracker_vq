@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useData } from "@/lib/data-context";
 import { getTrainingDays } from "@/lib/data";
 import clsx from "clsx";
 
@@ -17,15 +18,17 @@ interface TrainingCalendarProps {
 }
 
 export function TrainingCalendar({ userId }: TrainingCalendarProps) {
+  const { supabase } = useData();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [trainingDays, setTrainingDays] = useState<Set<number>>(new Set());
 
   const loadDays = useCallback(async () => {
-    const days = await getTrainingDays(userId, year, month);
+    if (!supabase) return;
+    const days = await getTrainingDays(supabase, userId, year, month);
     setTrainingDays(days);
-  }, [userId, year, month]);
+  }, [userId, year, month, supabase]);
 
   useEffect(() => {
     loadDays();
@@ -60,7 +63,6 @@ export function TrainingCalendar({ userId }: TrainingCalendarProps) {
   const cells: (number | null)[] = [];
   for (let i = 0; i < startDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  // Pad to complete last row
   while (cells.length % 7 !== 0) cells.push(null);
 
   const today = now.getDate();

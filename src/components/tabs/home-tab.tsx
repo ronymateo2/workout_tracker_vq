@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dumbbell } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
+import { useData } from "@/lib/data-context";
 import { getRecentWorkouts } from "@/lib/data";
 import type { WorkoutSessionWithEntries } from "@/types/models";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,15 +11,16 @@ import { WorkoutCard } from "@/components/home/workout-card";
 
 export function HomeTab() {
   const { user } = useAuth();
+  const { supabase } = useData();
   const [workouts, setWorkouts] = useState<WorkoutSessionWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadWorkouts = useCallback(async () => {
-    if (!user) return;
-    const recent = await getRecentWorkouts(user.id, 20);
+    if (!user || !supabase) return;
+    const recent = await getRecentWorkouts(supabase, user.id, 20);
     setWorkouts(recent);
     setLoading(false);
-  }, [user]);
+  }, [user, supabase]);
 
   useEffect(() => {
     loadWorkouts();

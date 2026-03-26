@@ -73,38 +73,42 @@ export function WorkoutProvider({
   userId: string;
   children: ReactNode;
 }) {
-  const { triggerSync } = useData();
+  const { supabase } = useData();
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Refresh entries from IndexedDB
-  const refreshEntries = useCallback(async (sessionId: string) => {
-    const rawEntries = await getEntriesForSession(sessionId);
-    const detailed: WorkoutEntryWithDetails[] = [];
-    for (const entry of rawEntries) {
-      const exercise = await getExerciseById(entry.exercise_id);
-      if (!exercise) continue;
-      const sets = await getSetsForEntry(entry.id);
-      detailed.push({ ...entry, exercise, sets });
-    }
-    setEntries(detailed);
-  }, []);
+  const refreshEntries = useCallback(
+    async (sessionId: string) => {
+      if (!supabase) return;
+      const rawEntries = await getEntriesForSession(supabase, sessionId);
+      const detailed: WorkoutEntryWithDetails[] = [];
+      for (const entry of rawEntries) {
+        const exercise = await getExerciseById(supabase, entry.exercise_id);
+        if (!exercise) continue;
+        const sets = await getSetsForEntry(supabase, entry.id);
+        detailed.push({ ...entry, exercise, sets });
+      }
+      setEntries(detailed);
+    },
+    [supabase],
+  );
 
-  // Load active session on mount
   useEffect(() => {
+    if (!supabase) return;
     (async () => {
-      const session = await getActiveSession(userId);
+      const session = await getActiveSession(supabase, userId);
       if (session) {
         setActiveSession(session);
         await refreshEntries(session.id);
       }
       setLoading(false);
     })();
-  }, [userId, refreshEntries]);
+  }, [userId, supabase, refreshEntries]);
 
   const startWorkout = useCallback(
     async (routineId?: string) => {
+      if (!supabase) return;
       const session: WorkoutSession = {
         id: crypto.randomUUID(),
         user_id: userId,
@@ -113,12 +117,11 @@ export function WorkoutProvider({
         finished_at: null,
         notes: null,
       };
-      await startWorkoutSession(session);
+      await startWorkoutSession(supabase, session);
       setActiveSession(session);
 
-      // If from routine, pre-populate entries with default sets
       if (routineId) {
-        const routine = await getRoutineWithExercises(routineId);
+        const routine = await getRoutineWithExercises(supabase, routineId);
         if (routine) {
           for (const re of routine.exercises) {
             const entry: WorkoutEntry = {
@@ -127,7 +130,7 @@ export function WorkoutProvider({
               exercise_id: re.exercise_id,
               position: re.position,
             };
-            await addWorkoutEntry(entry);
+            await addWorkoutEntry(supabase, entry);
 
             for (let i = 0; i < re.default_sets; i++) {
               const set: WorkoutSet = {
@@ -142,7 +145,7 @@ export function WorkoutProvider({
                 band_resistance: null,
                 completed: false,
               };
-              await addWorkoutSet(set);
+              await addWorkoutSet(supabase, set);
             }
           }
           await refreshEntries(session.id);
@@ -151,21 +154,20 @@ export function WorkoutProvider({
         setEntries([]);
       }
     },
-    [userId, refreshEntries],
+    [userId, supabase, refreshEntries],
   );
 
   const addExercise = useCallback(
     async (exercise: Exercise) => {
-      if (!activeSession) return;
+      if (!activeSession || !supabase) return;
       const entry: WorkoutEntry = {
         id: crypto.randomUUID(),
         session_id: activeSession.id,
         exercise_id: exercise.id,
         position: entries.length,
       };
-      await addWorkoutEntry(entry);
+      await addWorkoutEntry(supabase, entry);
 
-      // Add one empty set by default
       const set: WorkoutSet = {
         id: crypto.randomUUID(),
         entry_id: entry.id,
@@ -178,25 +180,25 @@ export function WorkoutProvider({
         band_resistance: null,
         completed: false,
       };
-      await addWorkoutSet(set);
+      await addWorkoutSet(supabase, set);
       await refreshEntries(activeSession.id);
     },
-    [activeSession, entries.length, refreshEntries],
+    [activeSession, entries.length, supabase, refreshEntries],
   );
 
   const removeExercise = useCallback(
     async (entryId: string) => {
-      if (!activeSession) return;
-      await removeWorkoutEntry(entryId);
+      if (!activeSession || !supabase) return;
+      await removeWorkoutEntry(supabase, entryId);
       await refreshEntries(activeSession.id);
     },
-    [activeSession, refreshEntries],
+    [activeSession, supabase, refreshEntries],
   );
 
   const addSet = useCallback(
     async (entryId: string) => {
-      if (!activeSession) return;
-      const currentSets = await getSetsForEntry(entryId);
+      if (!activeSession || !supabase) return;
+      const currentSets = await getSetsForEntry(supabase, entryId);
       const set: WorkoutSet = {
         id: crypto.randomUUID(),
         entry_id: entryId,
@@ -209,56 +211,55 @@ export function WorkoutProvider({
         band_resistance: null,
         completed: false,
       };
-      await addWorkoutSet(set);
+      await addWorkoutSet(supabase, set);
       await refreshEntries(activeSession.id);
     },
-    [activeSession, refreshEntries],
+    [activeSession, supabase, refreshEntries],
   );
 
   const updateSetFn = useCallback(
     async (setId: string, data: Partial<WorkoutSet>) => {
-      if (!activeSession) return;
-      await updateWorkoutSet(setId, data);
+      if (!activeSession || !supabase) return;
+      await updateWorkoutSet(supabase, setId, data);
       await refreshEntries(activeSession.id);
     },
-    [activeSession, refreshEntries],
+    [activeSession, supabase, refreshEntries],
   );
 
   const removeSet = useCallback(
     async (setId: string) => {
-      if (!activeSession) return;
-      await deleteWorkoutSet(setId);
+      if (!activeSession || !supabase) return;
+      await deleteWorkoutSet(supabase, setId);
       await refreshEntries(activeSession.id);
     },
-    [activeSession, refreshEntries],
+    [activeSession, supabase, refreshEntries],
   );
 
   const toggleSet = useCallback(
     async (setId: string) => {
-      if (!activeSession) return;
+      if (!activeSession || !supabase) return;
       const entry = entries.find((e) => e.sets.some((s) => s.id === setId));
       const set = entry?.sets.find((s) => s.id === setId);
       if (!set) return;
-      await updateWorkoutSet(setId, { completed: !set.completed });
+      await updateWorkoutSet(supabase, setId, { completed: !set.completed });
       await refreshEntries(activeSession.id);
     },
-    [activeSession, entries, refreshEntries],
+    [activeSession, entries, supabase, refreshEntries],
   );
 
   const finishWorkout = useCallback(async () => {
-    if (!activeSession) return;
-    await finishWorkoutSession(activeSession.id);
+    if (!activeSession || !supabase) return;
+    await finishWorkoutSession(supabase, activeSession.id);
     setActiveSession(null);
     setEntries([]);
-    triggerSync();
-  }, [activeSession, triggerSync]);
+  }, [activeSession, supabase]);
 
   const discardWorkout = useCallback(async () => {
-    if (!activeSession) return;
-    await deleteWorkoutSession(activeSession.id);
+    if (!activeSession || !supabase) return;
+    await deleteWorkoutSession(supabase, activeSession.id);
     setActiveSession(null);
     setEntries([]);
-  }, [activeSession]);
+  }, [activeSession, supabase]);
 
   return (
     <WorkoutContext.Provider

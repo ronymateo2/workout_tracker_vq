@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Dumbbell, X, Minus } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
+import { useData } from "@/lib/data-context";
 import { createRoutine } from "@/lib/data";
 import type { Exercise, Routine, RoutineExercise } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
@@ -23,6 +24,7 @@ interface RoutineExerciseItem {
 
 export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
   const { user } = useAuth();
+  const { supabase } = useData();
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<RoutineExerciseItem[]>([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -46,7 +48,7 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
   };
 
   const handleSave = async () => {
-    if (!user || !name.trim()) return;
+    if (!user || !supabase || !name.trim()) return;
 
     const routine: Routine = {
       id: crypto.randomUUID(),
@@ -64,7 +66,7 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
       default_sets: item.defaultSets,
     }));
 
-    await createRoutine(routine, routineExercises);
+    await createRoutine(supabase, routine, routineExercises);
     setName("");
     setExercises([]);
     onSaved();

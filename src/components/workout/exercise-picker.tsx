@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
+import { useData } from "@/lib/data-context";
 import { useWorkout } from "@/lib/workout-context";
 import { getExercises } from "@/lib/data";
 import type { Exercise, MuscleGroup } from "@/types/models";
@@ -18,16 +19,17 @@ interface ExercisePickerProps {
 
 export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
   const { user } = useAuth();
+  const { supabase } = useData();
   const { addExercise } = useWorkout();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
   const loadExercises = useCallback(async () => {
-    if (!user) return;
-    const all = await getExercises(user.id);
+    if (!user || !supabase) return;
+    const all = await getExercises(supabase, user.id);
     setExercises(all);
-  }, [user]);
+  }, [user, supabase]);
 
   useEffect(() => {
     if (open) {

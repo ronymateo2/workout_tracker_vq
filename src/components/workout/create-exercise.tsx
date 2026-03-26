@@ -3,6 +3,7 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { useAuth } from "@/lib/auth-client";
+import { useData } from "@/lib/data-context";
 import { createExercise } from "@/lib/data";
 import type { Exercise, ExerciseType, MuscleGroup } from "@/types/models";
 import { EXERCISE_TYPE_LABELS, MUSCLE_GROUP_LABELS } from "@/types/models";
@@ -50,6 +51,7 @@ export function CreateExercise({
   initialName = "",
 }: CreateExerciseProps) {
   const { user } = useAuth();
+  const { supabase } = useData();
   const [name, setName] = useState(initialName);
   const [exerciseType, setExerciseType] = useState<ExerciseType>("weight_reps");
   const [unilateral, setUnilateral] = useState(false);
@@ -75,7 +77,7 @@ export function CreateExercise({
   };
 
   const handleSave = async () => {
-    if (!user || !name.trim()) return;
+    if (!user || !supabase || !name.trim()) return;
 
     const exercise: Exercise = {
       id: crypto.randomUUID(),
@@ -87,7 +89,7 @@ export function CreateExercise({
       created_at: new Date().toISOString(),
     };
 
-    await createExercise(exercise);
+    await createExercise(supabase, exercise);
     onCreated();
     onClose();
   };
