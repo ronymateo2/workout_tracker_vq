@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dumbbell, LoaderCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
@@ -11,7 +11,40 @@ import { HomeTab } from "./tabs/home-tab";
 import { WorkoutTab } from "./tabs/workout-tab";
 import { ProfileTab } from "./tabs/profile-tab";
 
+function useServiceWorker() {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        registrationRef.current = reg;
+      })
+      .catch(console.error);
+
+    // Reload when a new SW takes control (skipWaiting already called in SW)
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
+
+    // iOS PWA doesn't check for SW updates automatically — force check on focus
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && registrationRef.current) {
+        registrationRef.current.update().catch(console.error);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+}
+
 export function App() {
+  useServiceWorker();
   return (
     <ThemeProvider>
       <AppInner />
