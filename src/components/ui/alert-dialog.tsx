@@ -42,7 +42,7 @@ export function AlertDialog({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ type: "spring", damping: 25, stiffness: 400 }}
-              className="w-full max-w-[270px] overflow-hidden rounded-[14px] bg-[#2C2C2E]"
+              className="w-full max-w-[270px] overflow-hidden rounded-[14px] bg-[var(--background-tertiary)]"
             >
               {/* Text */}
               <div className="px-4 pt-5 pb-4 text-center">
