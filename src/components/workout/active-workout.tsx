@@ -1,43 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { useWorkout } from "@/lib/workout-context";
-import { useAuth } from "@/lib/auth-client";
-import { useData } from "@/lib/data-context";
-import { getPreviousSetsForExercise } from "@/lib/data";
-import type { WorkoutSet } from "@/types/models";
 import { Button } from "@/components/ui/button";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { WorkoutTimer } from "./workout-timer";
 import { ExerciseCard } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
 
 export function ActiveWorkout() {
-  const { user } = useAuth();
-  const { supabase } = useData();
   const { activeSession, entries, finishWorkout, discardWorkout } = useWorkout();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [previousSetsMap, setPreviousSetsMap] = useState<Record<string, WorkoutSet[]>>({});
-
-  // Load previous sets for all exercises
-  const loadPreviousSets = useCallback(async () => {
-    if (!user || !supabase) return;
-    const map: Record<string, WorkoutSet[]> = {};
-    for (const entry of entries) {
-      if (!map[entry.exercise_id]) {
-        map[entry.exercise_id] = await getPreviousSetsForExercise(
-          supabase,
-          user.id,
-          entry.exercise_id,
-        );
-      }
-    }
-    setPreviousSetsMap(map);
-  }, [user, supabase, entries]);
-
-  useEffect(() => {
-    loadPreviousSets();
-  }, [loadPreviousSets]);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   if (!activeSession) return null;
 
@@ -62,7 +37,7 @@ export function ActiveWorkout() {
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => void discardWorkout()}
+            onClick={() => setShowDiscardConfirm(true)}
             className="flex items-center gap-1 text-[15px] text-[var(--label-secondary)] tap-highlight-transparent"
           >
             <ChevronDown className="size-5" />
@@ -105,7 +80,6 @@ export function ActiveWorkout() {
           <ExerciseCard
             key={entry.id}
             entry={entry}
-            previousSets={previousSetsMap[entry.exercise_id] ?? []}
           />
         ))}
 
@@ -127,6 +101,28 @@ export function ActiveWorkout() {
       <ExercisePicker
         open={showExercisePicker}
         onClose={() => setShowExercisePicker(false)}
+      />
+
+      {/* Discard confirmation */}
+      <AlertDialog
+        open={showDiscardConfirm}
+        title="¿Descartar rutina?"
+        description="Se perderán todos los datos de esta sesión."
+        actions={[
+          {
+            label: "Descartar",
+            variant: "danger",
+            onClick: () => {
+              setShowDiscardConfirm(false);
+              void discardWorkout();
+            },
+          },
+          {
+            label: "Cancelar",
+            variant: "cancel",
+            onClick: () => setShowDiscardConfirm(false),
+          },
+        ]}
       />
     </div>
   );

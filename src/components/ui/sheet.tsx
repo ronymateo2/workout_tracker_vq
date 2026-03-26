@@ -11,7 +11,7 @@ interface SheetProps {
 }
 
 export function Sheet({ open, onClose, children, title }: SheetProps) {
-  const [vp, setVp] = useState({ top: 0, height: 0 });
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -23,58 +23,54 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
     }
   }, [open]);
 
-  // Track visual viewport — handles keyboard on iOS
+  // Track visual viewport to keep sheet above keyboard on iOS.
+  // keyboard height = window.innerHeight - vv.height
+  // (do NOT subtract vv.offsetTop — that is document scroll, irrelevant for fixed elements)
   useEffect(() => {
-    const vv = window.visualViewport;
-    const getState = () => ({
-      top: vv ? vv.offsetTop : 0,
-      height: vv ? vv.height : window.innerHeight,
-    });
-
     if (!open) {
-      setVp(getState());
+      setKeyboardHeight(0);
       return;
     }
+    const vv = window.visualViewport;
+    if (!vv) return;
 
-    const update = () => setVp(getState());
-    setVp(getState());
+    const update = () => {
+      setKeyboardHeight(Math.max(0, window.innerHeight - vv.height));
+    };
 
-    if (vv) {
-      vv.addEventListener("resize", update);
-      vv.addEventListener("scroll", update);
-      return () => {
-        vv.removeEventListener("resize", update);
-        vv.removeEventListener("scroll", update);
-      };
-    }
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    update();
+
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      setKeyboardHeight(0);
+    };
   }, [open]);
 
   return (
     <AnimatePresence>
       {open && (
-        // Container follows the visual viewport so keyboard doesn't push content
-        <div
-          className="fixed inset-x-0 z-[60]"
-          style={{ top: vp.top, height: vp.height }}
-        >
+        <>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60"
+            className="fixed inset-0 z-[60] bg-black/60"
             onClick={onClose}
           />
 
-          {/* Sheet — slides up from bottom of visual viewport */}
+          {/* Sheet */}
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="absolute inset-x-0 bottom-0 z-[1] flex flex-col rounded-t-[20px] bg-[var(--background-secondary)]"
-            style={{ maxHeight: "92%" }}
+            style={{ bottom: keyboardHeight }}
+            className="fixed inset-x-0 top-[8dvh] z-[61] flex flex-col rounded-t-[20px] bg-[var(--background-secondary)]"
           >
             {/* Handle */}
             <div className="flex shrink-0 justify-center pt-2 pb-1">
@@ -95,7 +91,7 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
               {children}
             </div>
           </motion.div>
-        </div>
+        </>
       )}
     </AnimatePresence>
   );

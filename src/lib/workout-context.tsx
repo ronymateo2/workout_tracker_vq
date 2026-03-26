@@ -20,10 +20,7 @@ import {
   finishWorkoutSession,
   deleteWorkoutSession,
   addWorkoutEntry,
-  removeWorkoutEntry,
   addWorkoutSet,
-  updateWorkoutSet,
-  deleteWorkoutSet,
   getActiveSession,
   getEntriesForSession,
   getSetsForEntry,
@@ -31,6 +28,34 @@ import {
   getRoutineWithExercises,
 } from "./data";
 import { useData } from "./data-context";
+
+// ─── localStorage persistence ─────────────────────────────────────────────────
+
+const STORAGE_KEY = "rurana-active-workout";
+
+interface PersistedWorkout {
+  session: WorkoutSession;
+  entries: WorkoutEntryWithDetails[];
+}
+
+function loadFromStorage(): PersistedWorkout | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as PersistedWorkout) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveToStorage(session: WorkoutSession, entries: WorkoutEntryWithDetails[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ session, entries }));
+}
+
+function clearStorage() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+// ─── Context ──────────────────────────────────────────────────────────────────
 
 interface WorkoutContextValue {
   activeSession: WorkoutSession | null;
@@ -66,6 +91,8 @@ export function useWorkout() {
   return useContext(WorkoutContext);
 }
 
+// ─── Provider ────────────────────────────────────────────────────────────────
+
 export function WorkoutProvider({
   userId,
   children,
@@ -78,34 +105,54 @@ export function WorkoutProvider({
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshEntries = useCallback(
-    async (sessionId: string) => {
-      if (!supabase) return;
-      const rawEntries = await getEntriesForSession(supabase, sessionId);
-      const detailed: WorkoutEntryWithDetails[] = [];
-      for (const entry of rawEntries) {
-        const exercise = await getExerciseById(supabase, entry.exercise_id);
-        if (!exercise) continue;
-        const sets = await getSetsForEntry(supabase, entry.id);
-        detailed.push({ ...entry, exercise, sets });
-      }
-      setEntries(detailed);
+  // Helper: update state + localStorage atomically
+  const commit = useCallback(
+    (session: WorkoutSession, next: WorkoutEntryWithDetails[]) => {
+      setEntries(next);
+      saveToStorage(session, next);
     },
-    [supabase],
+    [],
   );
 
+  // ── Startup: restore from localStorage or DB ─────────────────────────────
   useEffect(() => {
     if (!supabase) return;
     (async () => {
+      // 1. Check localStorage
+      const persisted = loadFromStorage();
+      if (persisted) {
+        // Verify the session still exists in DB (not discarded from another tab)
+        const dbSession = await getActiveSession(supabase, userId);
+        if (dbSession && dbSession.id === persisted.session.id) {
+          setActiveSession(persisted.session);
+          setEntries(persisted.entries);
+          setLoading(false);
+          return;
+        }
+        clearStorage();
+      }
+
+      // 2. Fall back to DB (backward-compat with old data written directly)
       const session = await getActiveSession(supabase, userId);
       if (session) {
+        const rawEntries = await getEntriesForSession(supabase, session.id);
+        const detailed: WorkoutEntryWithDetails[] = [];
+        for (const entry of rawEntries) {
+          const exercise = await getExerciseById(supabase, entry.exercise_id);
+          if (!exercise) continue;
+          const sets = await getSetsForEntry(supabase, entry.id);
+          detailed.push({ ...entry, exercise, sets });
+        }
         setActiveSession(session);
-        await refreshEntries(session.id);
+        setEntries(detailed);
+        saveToStorage(session, detailed);
       }
+
       setLoading(false);
     })();
-  }, [userId, supabase, refreshEntries]);
+  }, [userId, supabase]);
 
+  // ── startWorkout ──────────────────────────────────────────────────────────
   const startWorkout = useCallback(
     async (routineId?: string) => {
       if (!supabase) return;
@@ -117,146 +164,174 @@ export function WorkoutProvider({
         finished_at: null,
         notes: null,
       };
+      // Only the session record goes to DB immediately (so we can detect it on refresh)
       await startWorkoutSession(supabase, session);
       setActiveSession(session);
 
       if (routineId) {
         const routine = await getRoutineWithExercises(supabase, routineId);
+        const detailed: WorkoutEntryWithDetails[] = [];
         if (routine) {
           for (const re of routine.exercises) {
-            const entry: WorkoutEntry = {
+            const entryId = crypto.randomUUID();
+            const sets: WorkoutSet[] = Array.from({ length: re.default_sets }, (_, i) => ({
               id: crypto.randomUUID(),
+              entry_id: entryId,
+              position: i,
+              weight_kg: null,
+              reps: null,
+              duration_seconds: null,
+              distance_m: null,
+              band_color: null,
+              band_resistance: null,
+              completed: false,
+            }));
+            detailed.push({
+              id: entryId,
               session_id: session.id,
               exercise_id: re.exercise_id,
               position: re.position,
-            };
-            await addWorkoutEntry(supabase, entry);
-
-            for (let i = 0; i < re.default_sets; i++) {
-              const set: WorkoutSet = {
-                id: crypto.randomUUID(),
-                entry_id: entry.id,
-                position: i,
-                weight_kg: null,
-                reps: null,
-                duration_seconds: null,
-                distance_m: null,
-                band_color: null,
-                band_resistance: null,
-                completed: false,
-              };
-              await addWorkoutSet(supabase, set);
-            }
+              exercise: re.exercise,
+              sets,
+            });
           }
-          await refreshEntries(session.id);
         }
+        commit(session, detailed);
       } else {
-        setEntries([]);
+        commit(session, []);
       }
     },
-    [userId, supabase, refreshEntries],
+    [userId, supabase, commit],
   );
 
+  // ── addExercise ───────────────────────────────────────────────────────────
   const addExercise = useCallback(
     async (exercise: Exercise) => {
-      if (!activeSession || !supabase) return;
-      const entry: WorkoutEntry = {
-        id: crypto.randomUUID(),
+      if (!activeSession) return;
+      const entryId = crypto.randomUUID();
+      const newEntry: WorkoutEntryWithDetails = {
+        id: entryId,
         session_id: activeSession.id,
         exercise_id: exercise.id,
         position: entries.length,
+        exercise,
+        sets: [
+          {
+            id: crypto.randomUUID(),
+            entry_id: entryId,
+            position: 0,
+            weight_kg: null,
+            reps: null,
+            duration_seconds: null,
+            distance_m: null,
+            band_color: null,
+            band_resistance: null,
+            completed: false,
+          },
+        ],
       };
-      await addWorkoutEntry(supabase, entry);
-
-      const set: WorkoutSet = {
-        id: crypto.randomUUID(),
-        entry_id: entry.id,
-        position: 0,
-        weight_kg: null,
-        reps: null,
-        duration_seconds: null,
-        distance_m: null,
-        band_color: null,
-        band_resistance: null,
-        completed: false,
-      };
-      await addWorkoutSet(supabase, set);
-      await refreshEntries(activeSession.id);
+      commit(activeSession, [...entries, newEntry]);
     },
-    [activeSession, entries.length, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── removeExercise ────────────────────────────────────────────────────────
   const removeExercise = useCallback(
     async (entryId: string) => {
-      if (!activeSession || !supabase) return;
-      await removeWorkoutEntry(supabase, entryId);
-      await refreshEntries(activeSession.id);
+      if (!activeSession) return;
+      commit(activeSession, entries.filter((e) => e.id !== entryId));
     },
-    [activeSession, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── addSet ────────────────────────────────────────────────────────────────
   const addSet = useCallback(
     async (entryId: string) => {
-      if (!activeSession || !supabase) return;
-      const currentSets = await getSetsForEntry(supabase, entryId);
-      const set: WorkoutSet = {
-        id: crypto.randomUUID(),
-        entry_id: entryId,
-        position: currentSets.length,
-        weight_kg: null,
-        reps: null,
-        duration_seconds: null,
-        distance_m: null,
-        band_color: null,
-        band_resistance: null,
-        completed: false,
-      };
-      await addWorkoutSet(supabase, set);
-      await refreshEntries(activeSession.id);
+      if (!activeSession) return;
+      const next = entries.map((entry) => {
+        if (entry.id !== entryId) return entry;
+        const newSet: WorkoutSet = {
+          id: crypto.randomUUID(),
+          entry_id: entryId,
+          position: entry.sets.length,
+          weight_kg: null,
+          reps: null,
+          duration_seconds: null,
+          distance_m: null,
+          band_color: null,
+          band_resistance: null,
+          completed: false,
+        };
+        return { ...entry, sets: [...entry.sets, newSet] };
+      });
+      commit(activeSession, next);
     },
-    [activeSession, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── updateSet ─────────────────────────────────────────────────────────────
   const updateSetFn = useCallback(
     async (setId: string, data: Partial<WorkoutSet>) => {
-      if (!activeSession || !supabase) return;
-      await updateWorkoutSet(supabase, setId, data);
-      await refreshEntries(activeSession.id);
+      if (!activeSession) return;
+      const next = entries.map((entry) => ({
+        ...entry,
+        sets: entry.sets.map((s) => (s.id === setId ? { ...s, ...data } : s)),
+      }));
+      commit(activeSession, next);
     },
-    [activeSession, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── removeSet ─────────────────────────────────────────────────────────────
   const removeSet = useCallback(
     async (setId: string) => {
-      if (!activeSession || !supabase) return;
-      await deleteWorkoutSet(supabase, setId);
-      await refreshEntries(activeSession.id);
+      if (!activeSession) return;
+      const next = entries.map((entry) => ({
+        ...entry,
+        sets: entry.sets.filter((s) => s.id !== setId),
+      }));
+      commit(activeSession, next);
     },
-    [activeSession, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── toggleSet ─────────────────────────────────────────────────────────────
   const toggleSet = useCallback(
     async (setId: string) => {
-      if (!activeSession || !supabase) return;
-      const entry = entries.find((e) => e.sets.some((s) => s.id === setId));
-      const set = entry?.sets.find((s) => s.id === setId);
-      if (!set) return;
-      await updateWorkoutSet(supabase, setId, { completed: !set.completed });
-      await refreshEntries(activeSession.id);
+      if (!activeSession) return;
+      const next = entries.map((entry) => ({
+        ...entry,
+        sets: entry.sets.map((s) =>
+          s.id === setId ? { ...s, completed: !s.completed } : s,
+        ),
+      }));
+      commit(activeSession, next);
     },
-    [activeSession, entries, supabase, refreshEntries],
+    [activeSession, entries, commit],
   );
 
+  // ── finishWorkout: flush everything to DB ─────────────────────────────────
   const finishWorkout = useCallback(async () => {
     if (!activeSession || !supabase) return;
+    for (const entry of entries) {
+      const { exercise: _exercise, sets, ...entryRecord } = entry;
+      await addWorkoutEntry(supabase, entryRecord as WorkoutEntry);
+      for (const set of sets) {
+        await addWorkoutSet(supabase, set);
+      }
+    }
     await finishWorkoutSession(supabase, activeSession.id);
+    clearStorage();
     setActiveSession(null);
     setEntries([]);
-  }, [activeSession, supabase]);
+  }, [activeSession, entries, supabase]);
 
+  // ── discardWorkout ────────────────────────────────────────────────────────
   const discardWorkout = useCallback(async () => {
     if (!activeSession || !supabase) return;
+    // Session is in DB but entries/sets are not yet, so just delete the session
     await deleteWorkoutSession(supabase, activeSession.id);
+    clearStorage();
     setActiveSession(null);
     setEntries([]);
   }, [activeSession, supabase]);
