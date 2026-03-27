@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -34,8 +35,10 @@ export function DataProvider({ supabaseToken, children }: DataProviderProps) {
     supabaseRef.current = getSupabaseBrowserClient(supabaseToken);
   }
 
+  const value = useMemo(() => ({ supabase: supabaseRef.current }), []);
+
   return (
-    <DataContext.Provider value={{ supabase: supabaseRef.current }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );

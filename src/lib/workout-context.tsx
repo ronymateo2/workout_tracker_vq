@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -329,23 +330,39 @@ export function WorkoutProvider({
     setEntries([]);
   }, [activeSession, supabase]);
 
+  const value = useMemo(
+    () => ({
+      activeSession,
+      entries,
+      loading,
+      startWorkout,
+      addExercise,
+      removeExercise,
+      addSet,
+      updateSet: updateSetFn,
+      removeSet,
+      toggleSet,
+      finishWorkout,
+      discardWorkout,
+    }),
+    [
+      activeSession,
+      entries,
+      loading,
+      startWorkout,
+      addExercise,
+      removeExercise,
+      addSet,
+      updateSetFn,
+      removeSet,
+      toggleSet,
+      finishWorkout,
+      discardWorkout,
+    ],
+  );
+
   return (
-    <WorkoutContext.Provider
-      value={{
-        activeSession,
-        entries,
-        loading,
-        startWorkout,
-        addExercise,
-        removeExercise,
-        addSet,
-        updateSet: updateSetFn,
-        removeSet,
-        toggleSet,
-        finishWorkout,
-        discardWorkout,
-      }}
-    >
+    <WorkoutContext.Provider value={value}>
       {children}
     </WorkoutContext.Provider>
   );

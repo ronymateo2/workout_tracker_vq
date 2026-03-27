@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Dumbbell, LoaderCircle, X } from "lucide-react";
 
-import { useAuth } from "@/lib/auth-client";
+import { AuthProvider, useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
 import { WorkoutProvider, useWorkout } from "@/lib/workout-context";
 import { ThemeProvider } from "@/lib/theme-context";
@@ -51,7 +51,9 @@ export function App() {
   useServiceWorker();
   return (
     <ThemeProvider>
-      <AppInner />
+      <AuthProvider>
+        <AppInner />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

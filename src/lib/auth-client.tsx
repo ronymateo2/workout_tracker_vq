@@ -1,11 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { AppUser } from "@/lib/auth";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
-export function useAuth() {
+interface AuthContextValue {
+  user: AppUser | null;
+  supabaseToken: string | null;
+  status: AuthStatus;
+  signInWithGoogle: () => void;
+  signOut: () => Promise<void>;
+  refreshSession: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
@@ -34,16 +53,36 @@ export function useAuth() {
     void fetchSession();
   }, [fetchSession]);
 
-  function signInWithGoogle() {
+  const signInWithGoogle = useCallback(() => {
     window.location.href = "/api/auth/google";
-  }
+  }, []);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     await fetch("/api/auth/signout", { method: "POST" });
     setUser(null);
     setSupabaseToken(null);
     setStatus("unauthenticated");
-  }
+  }, []);
 
-  return { user, supabaseToken, status, signInWithGoogle, signOut, refreshSession: fetchSession };
+  const value = useMemo(
+    () => ({
+      user,
+      supabaseToken,
+      status,
+      signInWithGoogle,
+      signOut,
+      refreshSession: fetchSession,
+    }),
+    [user, supabaseToken, status, signInWithGoogle, signOut, fetchSession],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
