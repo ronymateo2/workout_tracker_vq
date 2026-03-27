@@ -14,7 +14,7 @@ interface ActiveWorkoutProps {
 }
 
 export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
-  const { activeSession, entries, prevSetsMap, finishWorkout, discardWorkout } =
+  const { activeSession, entries, prevSetsMap, finishWorkout, discardWorkout, isSaving } =
     useWorkout();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -68,6 +68,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
               variant="primary"
               size="sm"
               className="!w-auto"
+              disabled={isSaving}
               onClick={() => {
                 if (totalCompletedSets === 0) {
                   setShowNoSetsAlert(true);
@@ -205,6 +206,14 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
           },
         ]}
       />
+
+      {/* Saving overlay */}
+      {isSaving && (
+        <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center gap-3 bg-[var(--background)]/80 backdrop-blur-sm">
+          <div className="size-10 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
+          <span className="text-[15px] text-[var(--label-secondary)]">Guardando...</span>
+        </div>
+      )}
     </div>
   );
 }

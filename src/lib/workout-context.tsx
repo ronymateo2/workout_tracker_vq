@@ -21,8 +21,6 @@ import {
   startWorkoutSession,
   finishWorkoutSession,
   deleteWorkoutSession,
-  addWorkoutEntry,
-  addWorkoutSet,
   getActiveSession,
   getEntriesWithDetailsForSession,
   getRoutineWithExercises,
@@ -61,19 +59,23 @@ function clearStorage() {
 interface WorkoutSessionContextValue {
   activeSession: WorkoutSession | null;
   loading: boolean;
+  isSaving: boolean;
   lastFinishedAt: string | null;
   startWorkout: (routineId?: string) => Promise<void>;
   finishWorkout: () => Promise<void>;
   discardWorkout: () => Promise<void>;
+  clearLastFinishedAt: () => void;
 }
 
 const WorkoutSessionContext = createContext<WorkoutSessionContextValue>({
   activeSession: null,
   loading: true,
+  isSaving: false,
   lastFinishedAt: null,
   startWorkout: async () => {},
   finishWorkout: async () => {},
   discardWorkout: async () => {},
+  clearLastFinishedAt: () => {},
 });
 
 export function useWorkoutSession() {
@@ -129,6 +131,7 @@ export function WorkoutProvider({
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [lastFinishedAt, setLastFinishedAt] = useState<string | null>(null);
   const [prevSetsMap, setPrevSetsMap] = useState<Record<string, WorkoutSet[]>>({});
   const fetchedPrevSetIds = useRef<Set<string>>(new Set());
@@ -244,20 +247,32 @@ export function WorkoutProvider({
     [userId, supabase, commit],
   );
 
-  // ── finishWorkout: flush only completed sets to DB ───────────────────────
+  // ── finishWorkout: flush only completed sets to DB (batched) ────────────
   // Uses entriesRef so this callback stays stable when entries change.
   const finishWorkout = useCallback(async () => {
     if (!activeSession || !supabase) return;
-    for (const entry of entriesRef.current) {
-      const completedSets = entry.sets.filter((s) => s.completed);
-      if (completedSets.length === 0) continue;
-      const { exercise: _exercise, sets: _sets, ...entryRecord } = entry;
-      await addWorkoutEntry(supabase, entryRecord as WorkoutEntry);
-      for (const set of completedSets) {
-        await addWorkoutSet(supabase, set);
+    setIsSaving(true);
+    try {
+      const entryRecords: WorkoutEntry[] = [];
+      const allCompletedSets: WorkoutSet[] = [];
+      for (const entry of entriesRef.current) {
+        const completedSets = entry.sets.filter((s) => s.completed);
+        if (completedSets.length === 0) continue;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { exercise, sets, ...entryRecord } = entry;
+        entryRecords.push(entryRecord as WorkoutEntry);
+        allCompletedSets.push(...completedSets);
       }
+      if (entryRecords.length > 0) {
+        await supabase.from("workout_entries").insert(entryRecords);
+      }
+      if (allCompletedSets.length > 0) {
+        await supabase.from("workout_sets").insert(allCompletedSets);
+      }
+      await finishWorkoutSession(supabase, activeSession.id);
+    } finally {
+      setIsSaving(false);
     }
-    await finishWorkoutSession(supabase, activeSession.id);
     clearStorage();
     entriesRef.current = [];
     fetchedPrevSetIds.current = new Set();
@@ -387,9 +402,11 @@ export function WorkoutProvider({
     [activeSession, commit],
   );
 
+  const clearLastFinishedAt = useCallback(() => setLastFinishedAt(null), []);
+
   const sessionValue = useMemo(
-    () => ({ activeSession, loading, lastFinishedAt, startWorkout, finishWorkout, discardWorkout }),
-    [activeSession, loading, lastFinishedAt, startWorkout, finishWorkout, discardWorkout],
+    () => ({ activeSession, loading, isSaving, lastFinishedAt, startWorkout, finishWorkout, discardWorkout, clearLastFinishedAt }),
+    [activeSession, loading, isSaving, lastFinishedAt, startWorkout, finishWorkout, discardWorkout, clearLastFinishedAt],
   );
 
   const entriesValue = useMemo(

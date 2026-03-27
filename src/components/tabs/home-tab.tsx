@@ -21,7 +21,7 @@ function getGreeting() {
 export function HomeTab() {
   const { user } = useAuth();
   const { supabase } = useData();
-  const { lastFinishedAt } = useWorkoutSession();
+  const { lastFinishedAt, clearLastFinishedAt } = useWorkoutSession();
   const [workouts, setWorkouts] = useState<WorkoutSessionWithEntries[]>([]);
   const [routineMap, setRoutineMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -53,7 +53,7 @@ export function HomeTab() {
     if (!user) return;
 
     if (lastFinishedAt) {
-      void fetchFromSupabase(); // eslint-disable-line react-hooks/set-state-in-effect
+      void fetchFromSupabase().then(clearLastFinishedAt); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
 
@@ -65,7 +65,7 @@ export function HomeTab() {
         void fetchFromSupabase();
       }
     });
-  }, [user?.id, lastFinishedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, lastFinishedAt, clearLastFinishedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="safe-top px-4">
