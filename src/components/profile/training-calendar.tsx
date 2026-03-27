@@ -6,12 +6,16 @@ import { useData } from "@/lib/data-context";
 import { getTrainingDays } from "@/lib/data";
 import clsx from "clsx";
 
-const MONTH_NAMES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
+const locale = typeof navigator !== "undefined" ? navigator.language : undefined;
 
-const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) =>
+  new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2000, i, 1))
+);
+
+// Monday-first day names (narrow)
+const DAY_NAMES = Array.from({ length: 7 }, (_, i) =>
+  new Intl.DateTimeFormat(locale, { weekday: "narrow" }).format(new Date(2000, 0, 3 + i))
+);
 
 interface TrainingCalendarProps {
   userId: string;

@@ -13,7 +13,11 @@ import { WorkoutTimer } from "./workout-timer";
 import { ExerciseCard } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
 
-export function ActiveWorkout() {
+interface ActiveWorkoutProps {
+  onMinimize?: () => void;
+}
+
+export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
   const { activeSession, entries, finishWorkout, discardWorkout } =
     useWorkout();
   const { supabase } = useData();
@@ -70,28 +74,37 @@ export function ActiveWorkout() {
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setShowDiscardConfirm(true)}
+            onClick={onMinimize}
             className="flex items-center gap-1 text-[15px] text-[var(--label-secondary)] tap-highlight-transparent"
           >
             <ChevronDown className="size-5" />
             Entrenando
           </button>
-          <Button
-            variant="primary"
-            size="sm"
-            className="!w-auto"
-            onClick={() => {
-              if (totalCompletedSets === 0) {
-                setShowNoSetsAlert(true);
-              } else if (incompleteExercises.length > 0) {
-                setShowIncompleteAlert(true);
-              } else {
-                void finishWorkout();
-              }
-            }}
-          >
-            Finalizar
-          </Button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDiscardConfirm(true)}
+              className="text-[15px] text-[var(--destructive)] tap-highlight-transparent"
+            >
+              Descartar
+            </button>
+            <Button
+              variant="primary"
+              size="sm"
+              className="!w-auto"
+              onClick={() => {
+                if (totalCompletedSets === 0) {
+                  setShowNoSetsAlert(true);
+                } else if (incompleteExercises.length > 0) {
+                  setShowIncompleteAlert(true);
+                } else {
+                  void finishWorkout();
+                }
+              }}
+            >
+              Finalizar
+            </Button>
+          </div>
         </div>
 
         {/* Stats bar */}

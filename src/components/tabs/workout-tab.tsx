@@ -9,17 +9,23 @@ import { getRoutinesWithExerciseNames } from "@/lib/data";
 import type { Routine } from "@/types/models";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ActiveWorkout } from "@/components/workout/active-workout";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { CreateRoutine } from "@/components/workout/create-routine";
 import { RoutineDetail } from "@/components/workout/routine-detail";
 
-export function WorkoutTab() {
+interface WorkoutTabProps {
+  onResumeWorkout: () => void;
+}
+
+export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   const { user } = useAuth();
   const { supabase } = useData();
-  const { activeSession, startWorkout } = useWorkout();
+  const { activeSession, startWorkout, discardWorkout } = useWorkout();
   const [routines, setRoutines] = useState<(Routine & { exerciseNames: string[] })[]>([]);
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
+  // undefined = no pending action, null = empty workout, string = routineId
+  const [pendingRoutineId, setPendingRoutineId] = useState<string | null | undefined>(undefined);
 
   const loadRoutines = useCallback(async () => {
     if (!user || !supabase) return;
@@ -31,9 +37,18 @@ export function WorkoutTab() {
     loadRoutines();
   }, [loadRoutines]);
 
-  // If there's an active workout, show it fullscreen
-  if (activeSession) {
-    return <ActiveWorkout />;
+  function handleStartWorkout(routineId?: string) {
+    if (activeSession) {
+      setPendingRoutineId(routineId ?? null);
+    } else {
+      void startWorkout(routineId);
+    }
+  }
+
+  async function confirmNewSession() {
+    await discardWorkout();
+    await startWorkout(pendingRoutineId ?? undefined);
+    setPendingRoutineId(undefined);
   }
 
   return (
@@ -44,7 +59,7 @@ export function WorkoutTab() {
       <Button
         variant="secondary"
         size="lg"
-        onClick={() => void startWorkout()}
+        onClick={() => handleStartWorkout()}
         className="mb-6"
       >
         <Plus className="size-5" />
@@ -103,7 +118,7 @@ export function WorkoutTab() {
               )}
               <button
                 type="button"
-                onClick={() => void startWorkout(routine.id)}
+                onClick={() => handleStartWorkout(routine.id)}
                 className="w-full rounded-[12px] bg-[var(--accent)] py-3 text-[15px] font-semibold text-white tap-highlight-transparent active:opacity-80"
               >
                 Iniciar Rutina
@@ -133,12 +148,39 @@ export function WorkoutTab() {
             setSelectedRoutineId(null);
             loadRoutines();
           }}
-          onStartWorkout={async () => {
-            await startWorkout(selectedRoutineId);
+          onStartWorkout={() => {
             setSelectedRoutineId(null);
+            handleStartWorkout(selectedRoutineId);
           }}
         />
       )}
+
+      {/* Conflict dialog: active session exists */}
+      <AlertDialog
+        open={pendingRoutineId !== undefined}
+        title="Sesión activa en curso"
+        description="¿Qué deseas hacer con la sesión actual?"
+        actions={[
+          {
+            label: "Resumir sesión",
+            variant: "cancel",
+            onClick: () => {
+              setPendingRoutineId(undefined);
+              onResumeWorkout();
+            },
+          },
+          {
+            label: "Nueva sesión",
+            variant: "danger",
+            onClick: () => void confirmNewSession(),
+          },
+          {
+            label: "Cancelar",
+            variant: "cancel",
+            onClick: () => setPendingRoutineId(undefined),
+          },
+        ]}
+      />
     </div>
   );
 }

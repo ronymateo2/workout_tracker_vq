@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Dumbbell, LoaderCircle, LogOut } from "lucide-react";
+import { Dumbbell, LoaderCircle, X } from "lucide-react";
+
 import { useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
-import { WorkoutProvider } from "@/lib/workout-context";
+import { WorkoutProvider, useWorkout } from "@/lib/workout-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { TabBar, type TabId } from "./tab-bar";
 import { HomeTab } from "./tabs/home-tab";
 import { WorkoutTab } from "./tabs/workout-tab";
 import { ProfileTab } from "./tabs/profile-tab";
+import { ActiveWorkout } from "./workout/active-workout";
+import { WorkoutTimer } from "./workout/workout-timer";
+import { AlertDialog } from "./ui/alert-dialog";
 
 function useServiceWorker() {
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
@@ -130,17 +134,95 @@ function AuthenticatedApp({
   onSignOut: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<TabId>("workout");
+  const [showActiveWorkout, setShowActiveWorkout] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const { activeSession, loading, discardWorkout } = useWorkout();
+  const hasInitialized = useRef(false);
+
+  // Auto-open only when a NEW session starts (not on page restore)
+  useEffect(() => {
+    if (loading) return;
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      return;
+    }
+    if (activeSession) {
+      const id = setTimeout(() => setShowActiveWorkout(true), 0);
+      return () => clearTimeout(id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id, loading]);
+
+  const overlayVisible = showActiveWorkout && !!activeSession;
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Tab content */}
+      {overlayVisible && (
+        <ActiveWorkout onMinimize={() => setShowActiveWorkout(false)} />
+      )}
+
       <main className="flex-1 pb-20">
         {activeTab === "home" && <HomeTab />}
-        {activeTab === "workout" && <WorkoutTab />}
+        {activeTab === "workout" && (
+          <WorkoutTab onResumeWorkout={() => setShowActiveWorkout(true)} />
+        )}
         {activeTab === "profile" && (
           <ProfileTab user={user} onSignOut={onSignOut} />
         )}
       </main>
+
+      {/* Active session pill */}
+      {activeSession && !overlayVisible && (
+        <div
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+76px)] left-1/2 z-40 -translate-x-1/2 flex items-center rounded-full"
+          style={{
+            background: "#1C1C1E",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.1), 0 4px 20px rgba(0,0,0,0.6)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setShowActiveWorkout(true)}
+            className="flex items-center gap-3 rounded-full px-5 py-2.5 tap-highlight-transparent transition-transform active:scale-95"
+          >
+            <span className="relative flex size-2 shrink-0">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#0A84FF] opacity-60" />
+              <span className="relative inline-flex size-2 rounded-full bg-[#0A84FF]" />
+            </span>
+            <span className="whitespace-nowrap text-[13px] font-semibold text-white">Entrenando</span>
+            <span className="h-3.5 w-px bg-white/20" />
+            <WorkoutTimer startedAt={activeSession.started_at} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDiscardConfirm(true)}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full mr-1 tap-highlight-transparent active:opacity-60"
+          >
+            <X className="size-3.5 text-white/50" />
+          </button>
+        </div>
+      )}
+
+      <AlertDialog
+        open={showDiscardConfirm}
+        title="¿Eliminar sesión?"
+        description="Se perderán todos los datos de esta sesión."
+        actions={[
+          {
+            label: "Eliminar",
+            variant: "danger",
+            onClick: () => {
+              setShowDiscardConfirm(false);
+              void discardWorkout();
+            },
+          },
+          {
+            label: "Cancelar",
+            variant: "cancel",
+            onClick: () => setShowDiscardConfirm(false),
+          },
+        ]}
+      />
 
       <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
