@@ -23,11 +23,9 @@ import {
   addWorkoutEntry,
   addWorkoutSet,
   getActiveSession,
-  getEntriesForSession,
-  getSetsForEntry,
-  getExerciseById,
+  getEntriesWithDetailsForSession,
   getRoutineWithExercises,
-  getPreviousSetsForExercise,
+  getPreviousSetsForExercises,
 } from "./data";
 import { useData } from "./data-context";
 
@@ -49,7 +47,10 @@ function loadFromStorage(): PersistedWorkout | null {
   }
 }
 
-function saveToStorage(session: WorkoutSession, entries: WorkoutEntryWithDetails[]) {
+function saveToStorage(
+  session: WorkoutSession,
+  entries: WorkoutEntryWithDetails[],
+) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ session, entries }));
 }
 
@@ -105,9 +106,13 @@ export function WorkoutProvider({
   children: ReactNode;
 }) {
   const { supabase } = useData();
-  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(
+    null,
+  );
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
-  const [previousSets, setPreviousSets] = useState<Record<string, WorkoutSet[]>>({});
+  const [previousSets, setPreviousSets] = useState<
+    Record<string, WorkoutSet[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const prevSetsCache = useRef<Record<string, WorkoutSet[]>>({});
 
@@ -141,14 +146,11 @@ export function WorkoutProvider({
       // 2. Fall back to DB (backward-compat with old data written directly)
       const session = await getActiveSession(supabase, userId);
       if (session) {
-        const rawEntries = await getEntriesForSession(supabase, session.id);
-        const detailed: WorkoutEntryWithDetails[] = [];
-        for (const entry of rawEntries) {
-          const exercise = await getExerciseById(supabase, entry.exercise_id);
-          if (!exercise) continue;
-          const sets = await getSetsForEntry(supabase, entry.id);
-          detailed.push({ ...entry, exercise, sets });
-        }
+        debugger;
+        const detailed = await getEntriesWithDetailsForSession(
+          supabase,
+          session.id,
+        );
         setActiveSession(session);
         setEntries(detailed);
         saveToStorage(session, detailed);
@@ -165,12 +167,10 @@ export function WorkoutProvider({
     const uncached = exerciseIds.filter((id) => !(id in prevSetsCache.current));
     if (uncached.length === 0) return;
     void (async () => {
-      const fetched: Record<string, WorkoutSet[]> = {};
-      await Promise.all(
-        uncached.map(async (exerciseId) => {
-          const sets = await getPreviousSetsForExercise(supabase!, userId, exerciseId);
-          fetched[exerciseId] = sets;
-        }),
+      const fetched = await getPreviousSetsForExercises(
+        supabase!,
+        userId,
+        uncached,
       );
       prevSetsCache.current = { ...prevSetsCache.current, ...fetched };
       setPreviousSets({ ...prevSetsCache.current });
@@ -200,18 +200,21 @@ export function WorkoutProvider({
           for (const re of routine.exercises) {
             const entryId = crypto.randomUUID();
             const isBands = re.exercise.exercise_type === "bands";
-            const sets: WorkoutSet[] = Array.from({ length: re.default_sets }, (_, i) => ({
-              id: crypto.randomUUID(),
-              entry_id: entryId,
-              position: i,
-              weight_kg: null,
-              reps: null,
-              duration_seconds: null,
-              distance_m: null,
-              band_color: isBands ? "yellow" : null,
-              band_resistance: null,
-              completed: false,
-            }));
+            const sets: WorkoutSet[] = Array.from(
+              { length: re.default_sets },
+              (_, i) => ({
+                id: crypto.randomUUID(),
+                entry_id: entryId,
+                position: i,
+                weight_kg: null,
+                reps: null,
+                duration_seconds: null,
+                distance_m: null,
+                band_color: isBands ? "yellow" : null,
+                band_resistance: null,
+                completed: false,
+              }),
+            );
             detailed.push({
               id: entryId,
               session_id: session.id,
@@ -265,7 +268,10 @@ export function WorkoutProvider({
   const removeExercise = useCallback(
     async (entryId: string) => {
       if (!activeSession) return;
-      commit(activeSession, entries.filter((e) => e.id !== entryId));
+      commit(
+        activeSession,
+        entries.filter((e) => e.id !== entryId),
+      );
     },
     [activeSession, entries, commit],
   );

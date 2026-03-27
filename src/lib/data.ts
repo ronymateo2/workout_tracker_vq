@@ -8,6 +8,7 @@ import type {
   WorkoutSet,
   WorkoutSessionWithEntries,
   RoutineWithExercises,
+  WorkoutEntryWithDetails,
 } from "@/types/models";
 
 // ─── Exercises ───────────────────────────────────────────────────────────────
@@ -40,6 +41,18 @@ export async function getExerciseById(
     .eq("id", id)
     .maybeSingle();
   return data ?? undefined;
+}
+
+export async function getExercisesByIds(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Exercise[]> {
+  if (ids.length === 0) return [];
+  const { data } = await supabase
+    .from("exercise_library")
+    .select("*")
+    .in("id", ids);
+  return (data ?? []) as Exercise[];
 }
 
 // ─── Routines ────────────────────────────────────────────────────────────────
@@ -93,34 +106,30 @@ export async function getRoutineWithExercises(
   supabase: SupabaseClient,
   routineId: string,
 ): Promise<RoutineWithExercises | null> {
-  const { data: routine } = await supabase
+  const { data } = await supabase
     .from("routines")
-    .select("*")
+    .select(
+      `
+      *,
+      exercises:routine_exercises(
+        *,
+        exercise:exercise_library(*)
+      )
+    `,
+    )
     .eq("id", routineId)
     .maybeSingle();
-  if (!routine) return null;
 
-  const { data: routineExercises } = await supabase
-    .from("routine_exercises")
-    .select("*")
-    .eq("routine_id", routineId)
-    .order("position");
+  if (!data) return null;
 
-  const exercises: RoutineWithExercises["exercises"] = [];
-  for (const re of routineExercises ?? []) {
-    const { data: exercise } = await supabase
-      .from("exercise_library")
-      .select("*")
-      .eq("id", re.exercise_id)
-      .maybeSingle();
-    if (exercise) {
-      exercises.push({ ...re, exercise } as RoutineExercise & {
-        exercise: Exercise;
-      });
-    }
-  }
+  type RawExerciseRow = RoutineExercise & { exercise: Exercise | null };
+  const exercises = ((data.exercises ?? []) as RawExerciseRow[])
+    .filter((re) => re.exercise !== null)
+    .sort(
+      (a, b) => a.position - b.position,
+    ) as RoutineWithExercises["exercises"];
 
-  return { ...routine, exercises } as RoutineWithExercises;
+  return { ...data, exercises } as RoutineWithExercises;
 }
 
 export async function createRoutine(
@@ -221,6 +230,35 @@ export async function removeWorkoutEntry(
   await supabase.from("workout_entries").delete().eq("id", entryId);
 }
 
+export async function getEntriesWithDetailsForSession(
+  supabase: SupabaseClient,
+  sessionId: string,
+): Promise<WorkoutEntryWithDetails[]> {
+  const { data } = await supabase
+    .from("workout_entries")
+    .select(
+      `
+      *,
+      exercise:exercise_library(*),
+      sets:workout_sets(*)
+    `,
+    )
+    .eq("session_id", sessionId)
+    .order("position");
+
+  return (data ?? []).flatMap((entry) => {
+    if (!entry.exercise) return [];
+    return [
+      {
+        ...entry,
+        sets: ((entry.sets ?? []) as WorkoutSet[]).sort(
+          (a, b) => a.position - b.position,
+        ),
+      } as WorkoutEntryWithDetails,
+    ];
+  });
+}
+
 export async function getEntriesForSession(
   supabase: SupabaseClient,
   sessionId: string,
@@ -265,6 +303,19 @@ export async function getSetsForEntry(
     .from("workout_sets")
     .select("*")
     .eq("entry_id", entryId)
+    .order("position");
+  return (data ?? []) as WorkoutSet[];
+}
+
+export async function getSetsForEntries(
+  supabase: SupabaseClient,
+  entryIds: string[],
+): Promise<WorkoutSet[]> {
+  if (entryIds.length === 0) return [];
+  const { data } = await supabase
+    .from("workout_sets")
+    .select("*")
+    .in("entry_id", entryIds)
     .order("position");
   return (data ?? []) as WorkoutSet[];
 }
@@ -370,35 +421,63 @@ export async function getTrainingDays(
 
 // ─── Previous Sets (for ANTERIOR column) ─────────────────────────────────────
 
-export async function getPreviousSetsForExercise(
+export async function getPreviousSetsForExercises(
   supabase: SupabaseClient,
   userId: string,
-  exerciseId: string,
-): Promise<WorkoutSet[]> {
+  exerciseIds: string[],
+): Promise<Record<string, WorkoutSet[]>> {
+  if (exerciseIds.length === 0) return {};
+
+  // 1. Get recent finished session IDs ordered by recency
   const { data: sessions } = await supabase
     .from("workout_sessions")
     .select("id")
     .eq("user_id", userId)
     .not("finished_at", "is", null)
-    .order("started_at", { ascending: false });
+    .order("started_at", { ascending: false })
+    .limit(50);
 
-  for (const session of sessions ?? []) {
-    const { data: entries } = await supabase
-      .from("workout_entries")
-      .select("*")
-      .eq("session_id", session.id)
-      .eq("exercise_id", exerciseId)
-      .limit(1);
+  if (!sessions?.length) return {};
 
-    if (entries && entries.length > 0) {
-      const { data: sets } = await supabase
-        .from("workout_sets")
-        .select("*")
-        .eq("entry_id", entries[0].id)
-        .order("position");
-      return (sets ?? []) as WorkoutSet[];
+  const sessionIds = sessions.map((s) => s.id as string);
+  const sessionOrder = new Map(sessionIds.map((id, i) => [id, i]));
+
+  // 2. Get all matching entries (no embedded joins)
+  const { data: entries } = await supabase
+    .from("workout_entries")
+    .select("id, exercise_id, session_id")
+    .in("session_id", sessionIds)
+    .in("exercise_id", exerciseIds);
+
+  if (!entries?.length) return {};
+
+  // Pick the most recent entry per exercise
+  const bestEntryPerExercise = new Map<string, string>(); // exercise_id -> entry_id
+  const sorted = [...entries].sort(
+    (a, b) =>
+      (sessionOrder.get(a.session_id) ?? 999) -
+      (sessionOrder.get(b.session_id) ?? 999),
+  );
+  for (const entry of sorted) {
+    if (!bestEntryPerExercise.has(entry.exercise_id)) {
+      bestEntryPerExercise.set(entry.exercise_id, entry.id);
     }
   }
 
-  return [];
+  // 3. Get sets for those entries
+  const bestEntryIds = [...bestEntryPerExercise.values()];
+  const { data: sets } = await supabase
+    .from("workout_sets")
+    .select("*")
+    .in("entry_id", bestEntryIds)
+    .order("position");
+
+  // Assemble result
+  const result: Record<string, WorkoutSet[]> = {};
+  for (const [exerciseId, entryId] of bestEntryPerExercise) {
+    result[exerciseId] = ((sets ?? []) as WorkoutSet[]).filter(
+      (s) => s.entry_id === entryId,
+    );
+  }
+  return result;
 }
