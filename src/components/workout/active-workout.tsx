@@ -13,13 +13,20 @@ export function ActiveWorkout() {
   const { activeSession, entries, finishWorkout, discardWorkout } = useWorkout();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [showNoSetsAlert, setShowNoSetsAlert] = useState(false);
+  const [showIncompleteAlert, setShowIncompleteAlert] = useState(false);
 
   if (!activeSession) return null;
 
   // Calculate stats
   let totalVolume = 0;
   let totalCompletedSets = 0;
+  const incompleteExercises: string[] = [];
   for (const entry of entries) {
+    const completedInEntry = entry.sets.filter((s) => s.completed).length;
+    if (completedInEntry === 0) {
+      incompleteExercises.push(entry.exercise.name);
+    }
     for (const set of entry.sets) {
       if (set.completed) {
         totalCompletedSets++;
@@ -47,7 +54,15 @@ export function ActiveWorkout() {
             variant="primary"
             size="sm"
             className="!w-auto"
-            onClick={() => void finishWorkout()}
+            onClick={() => {
+              if (totalCompletedSets === 0) {
+                setShowNoSetsAlert(true);
+              } else if (incompleteExercises.length > 0) {
+                setShowIncompleteAlert(true);
+              } else {
+                void finishWorkout();
+              }
+            }}
           >
             Finalizar
           </Button>
@@ -98,6 +113,42 @@ export function ActiveWorkout() {
       <ExercisePicker
         open={showExercisePicker}
         onClose={() => setShowExercisePicker(false)}
+      />
+
+      {/* Incomplete exercises confirmation */}
+      <AlertDialog
+        open={showIncompleteAlert}
+        title="Ejercicios sin completar"
+        description={`${incompleteExercises.join(", ")} no ${incompleteExercises.length === 1 ? "tiene" : "tienen"} series completadas. ¿Guardar de todas formas?`}
+        actions={[
+          {
+            label: "Guardar de todas formas",
+            variant: "default",
+            onClick: () => {
+              setShowIncompleteAlert(false);
+              void finishWorkout();
+            },
+          },
+          {
+            label: "Continuar entrenando",
+            variant: "cancel",
+            onClick: () => setShowIncompleteAlert(false),
+          },
+        ]}
+      />
+
+      {/* No sets alert */}
+      <AlertDialog
+        open={showNoSetsAlert}
+        title="Sin series completadas"
+        description="Completa al menos una serie antes de finalizar el entrenamiento."
+        actions={[
+          {
+            label: "Entendido",
+            variant: "cancel",
+            onClick: () => setShowNoSetsAlert(false),
+          },
+        ]}
       />
 
       {/* Discard confirmation */}
