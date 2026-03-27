@@ -200,9 +200,19 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
               <span className="text-center">Reps</span>
             </>
           ) : (
-            columns.fields.map((f) => (
-              <span key={f.key} className="text-center">{f.label}</span>
-            ))
+            columns.fields.map((f) =>
+              f.key === "duration_seconds" ? (
+                <div key={f.key} className="flex">
+                  <span className="flex-1 text-center">Hr</span>
+                  <span className="w-3" />
+                  <span className="flex-1 text-center">Min</span>
+                  <span className="w-3" />
+                  <span className="flex-1 text-center">Seg</span>
+                </div>
+              ) : (
+                <span key={f.key} className="text-center">{f.label}</span>
+              )
+            )
           )}
           <div className="flex justify-center">
             <Check className="size-3.5" strokeWidth={2.5} />
@@ -318,6 +328,16 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
               </>
             ) : (
               columns.fields.map((f) => {
+                if (f.key === "duration_seconds") {
+                  return (
+                    <DurationInput
+                      key={f.key}
+                      totalSeconds={set.duration_seconds}
+                      completed={set.completed}
+                      onChange={(seconds) => void updateSet(set.id, { duration_seconds: seconds })}
+                    />
+                  );
+                }
                 const isReps = f.key === "reps";
                 const shaking = isReps && shakingId === set.id;
                 return (
@@ -382,7 +402,85 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
   );
 }
 
+// ─── Duration Input ───────────────────────────────────────────────────────────
+
+function DurationInput({
+  totalSeconds,
+  completed,
+  onChange,
+}: {
+  totalSeconds: number | null;
+  completed: boolean;
+  onChange: (seconds: number | null) => void;
+}) {
+  const total = totalSeconds ?? 0;
+  const h = total > 0 ? Math.floor(total / 3600) : 0;
+  const m = total > 0 ? Math.floor((total % 3600) / 60) : 0;
+  const s = total > 0 ? total % 60 : 0;
+
+  const update = (part: "h" | "m" | "s", raw: string) => {
+    const n = raw === "" ? 0 : Math.max(0, parseInt(raw) || 0);
+    const newH = part === "h" ? n : h;
+    const newM = part === "m" ? Math.min(59, n) : m;
+    const newS = part === "s" ? Math.min(59, n) : s;
+    const newTotal = newH * 3600 + newM * 60 + newS;
+    onChange(newTotal > 0 ? newTotal : null);
+  };
+
+  const inputCls = clsx(
+    "w-full rounded-[8px] py-1.5 text-center text-[14px] font-semibold outline-none transition-colors",
+    completed
+      ? "bg-transparent text-[var(--label-secondary)]"
+      : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        placeholder="0"
+        value={h > 0 ? h : ""}
+        onChange={(e) => update("h", e.target.value)}
+        className={inputCls}
+      />
+      <span className="shrink-0 text-[12px] text-[var(--label-secondary)]">:</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        max="59"
+        placeholder="00"
+        value={m > 0 ? m : ""}
+        onChange={(e) => update("m", e.target.value)}
+        className={inputCls}
+      />
+      <span className="shrink-0 text-[12px] text-[var(--label-secondary)]">:</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        max="59"
+        placeholder="00"
+        value={s > 0 ? s : ""}
+        onChange={(e) => update("s", e.target.value)}
+        className={inputCls}
+      />
+    </div>
+  );
+}
+
 // ─── Previous set cell ────────────────────────────────────────────────────────
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  if (m > 0) return `${m}:${String(s).padStart(2, "0")}`;
+  return `${s}s`;
+}
 
 function formatPrevCell(set: WorkoutSet, type: ExerciseType): string {
   switch (type) {
@@ -394,12 +492,12 @@ function formatPrevCell(set: WorkoutSet, type: ExerciseType): string {
     case "bodyweight_reps":
       return set.reps != null ? `${set.reps} reps` : "—";
     case "duration":
-      return set.duration_seconds != null ? `${set.duration_seconds}s` : "—";
+      return set.duration_seconds != null ? formatDuration(set.duration_seconds) : "—";
     case "duration_weight":
-      if (set.weight_kg != null && set.duration_seconds != null) return `${set.weight_kg}kg × ${set.duration_seconds}s`;
+      if (set.weight_kg != null && set.duration_seconds != null) return `${set.weight_kg}kg × ${formatDuration(set.duration_seconds)}`;
       return "—";
     case "distance_duration":
-      if (set.distance_m != null && set.duration_seconds != null) return `${set.distance_m}m × ${set.duration_seconds}s`;
+      if (set.distance_m != null && set.duration_seconds != null) return `${set.distance_m}m × ${formatDuration(set.duration_seconds)}`;
       return "—";
     case "weight_distance":
       if (set.weight_kg != null && set.distance_m != null) return `${set.weight_kg}kg × ${set.distance_m}m`;

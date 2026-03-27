@@ -20,6 +20,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showNoSetsAlert, setShowNoSetsAlert] = useState(false);
   const [showIncompleteAlert, setShowIncompleteAlert] = useState(false);
+  const [showCongrats, setShowCongrats] = useState(false);
 
   if (!activeSession) return null;
 
@@ -73,7 +74,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
                 } else if (incompleteExercises.length > 0) {
                   setShowIncompleteAlert(true);
                 } else {
-                  void finishWorkout();
+                  setShowCongrats(true);
                 }
               }}
             >
@@ -141,7 +142,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
             variant: "default",
             onClick: () => {
               setShowIncompleteAlert(false);
-              void finishWorkout();
+              setShowCongrats(true);
             },
           },
           {
@@ -162,6 +163,23 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
             label: "Entendido",
             variant: "cancel",
             onClick: () => setShowNoSetsAlert(false),
+          },
+        ]}
+      />
+
+      {/* Congrats */}
+      <AlertDialog
+        open={showCongrats}
+        title="¡Felicitaciones!"
+        description={`Terminaste tu sesión con ${totalCompletedSets} ${totalCompletedSets === 1 ? "serie" : "series"} completadas${totalVolume > 0 ? ` y ${Math.round(totalVolume)} kg de volumen` : ""}.`}
+        actions={[
+          {
+            label: "¡Listo!",
+            variant: "cancel",
+            onClick: () => {
+              setShowCongrats(false);
+              void finishWorkout();
+            },
           },
         ]}
       />
