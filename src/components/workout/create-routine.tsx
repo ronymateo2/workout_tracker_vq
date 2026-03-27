@@ -84,21 +84,21 @@ function Counter({
         type="button"
         onClick={() => onDelta(-1)}
         disabled={value <= min}
-        className="flex size-6 items-center justify-center rounded-full bg-[var(--fill-secondary)] tap-highlight-transparent disabled:opacity-30"
+        className="flex size-9 items-center justify-center rounded-full bg-[var(--fill-secondary)] tap-highlight-transparent disabled:opacity-30"
       >
-        <Minus className="size-3" />
+        <Minus className="size-4" />
       </button>
-      <span className="w-6 text-center text-[14px] font-semibold tabular-nums">
+      <span className="w-8 text-center text-[15px] font-semibold tabular-nums">
         {value}
       </span>
       <button
         type="button"
         onClick={() => onDelta(1)}
-        className="flex size-6 items-center justify-center rounded-full bg-[var(--fill-secondary)] tap-highlight-transparent"
+        className="flex size-9 items-center justify-center rounded-full bg-[var(--fill-secondary)] tap-highlight-transparent"
       >
-        <Plus className="size-3" />
+        <Plus className="size-4" />
       </button>
-      <span className="text-[12px] text-[var(--label-secondary)]">{label}</span>
+      <span className="text-[13px] text-[var(--label-secondary)]">{label}</span>
     </div>
   );
 }
@@ -129,7 +129,7 @@ function TimeSegment({
           const n = parseInt(e.target.value, 10);
           if (!isNaN(n)) onChange(Math.min(max, Math.max(0, n)));
         }}
-        className="w-10 rounded-[8px] bg-[var(--fill-secondary)] px-1 py-1 text-center text-[15px] font-bold tabular-nums text-[var(--foreground)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="w-12 rounded-[8px] bg-[var(--fill-secondary)] px-1 py-1.5 text-center text-[16px] font-bold tabular-nums text-[var(--foreground)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <span className="text-[12px] font-medium text-[var(--label-secondary)]">
         {label}
@@ -241,7 +241,7 @@ function ExerciseCard({
                 const n = parseInt(e.target.value, 10);
                 if (!isNaN(n)) onUpdateReps(Math.max(1, n));
               }}
-              className="w-10 rounded-[8px] bg-[var(--fill-secondary)] px-1 py-1 text-center text-[15px] font-bold tabular-nums text-[var(--foreground)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-12 rounded-[8px] bg-[var(--fill-secondary)] px-1 py-1.5 text-center text-[16px] font-bold tabular-nums text-[var(--foreground)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <span className="text-[12px] font-medium text-[var(--label-secondary)]">
               reps

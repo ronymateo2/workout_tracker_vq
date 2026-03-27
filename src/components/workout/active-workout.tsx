@@ -60,7 +60,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
             <button
               type="button"
               onClick={() => setShowDiscardConfirm(true)}
-              className="text-[15px] text-[var(--destructive)] tap-highlight-transparent"
+              className="text-[16px] text-[var(--destructive)] tap-highlight-transparent px-2 py-2 -mx-2 -my-2"
             >
               Descartar
             </button>
@@ -84,7 +84,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
         </div>
 
         {/* Stats bar */}
-        <div className="flex gap-6 text-[12px]">
+        <div className="flex gap-5 text-[14px]">
           <div>
             <span className="text-[var(--label-secondary)]">Duración </span>
             <WorkoutTimer startedAt={activeSession.started_at} />

@@ -28,14 +28,14 @@ export function TabBar({ activeTab, onTabChange }: TabBarProps) {
               type="button"
               onClick={() => onTabChange(id)}
               className={clsx(
-                "flex flex-col items-center gap-0.5 px-4 py-1 tap-highlight-transparent transition-colors",
+                "flex flex-col items-center gap-1 px-4 py-2 tap-highlight-transparent transition-colors",
                 active
                   ? "text-[var(--accent)]"
                   : "text-[var(--label-tertiary)]",
               )}
             >
               <Icon className="size-6" strokeWidth={active ? 2.2 : 1.5} />
-              <span className="text-[10px] font-medium">{label}</span>
+              <span className="text-[12px] font-medium">{label}</span>
             </button>
           );
         })}

@@ -32,18 +32,18 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
           className="fixed inset-0 z-[60] flex flex-col bg-[var(--background)] safe-top"
         >
           {/* Header */}
-          <div className="shrink-0 flex items-center justify-between border-b border-[var(--line)] px-4 pb-3 pt-2">
+          <div className="shrink-0 flex items-center justify-between border-b border-[var(--line)] px-4 pb-3.5 pt-2">
             {title ? (
-              <h2 className="text-[17px] font-semibold">{title}</h2>
+              <h2 className="text-[18px] font-semibold">{title}</h2>
             ) : (
               <div />
             )}
             <button
               type="button"
               onClick={onClose}
-              className="flex size-8 items-center justify-center rounded-full bg-[var(--fill-tertiary)] tap-highlight-transparent active:opacity-60"
+              className="flex size-10 items-center justify-center rounded-full bg-[var(--fill-tertiary)] tap-highlight-transparent active:opacity-60"
             >
-              <X className="size-4 text-[var(--label-secondary)]" />
+              <X className="size-5 text-[var(--label-secondary)]" />
             </button>
           </div>
 

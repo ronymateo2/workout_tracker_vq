@@ -116,7 +116,7 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
             ) : (
               Object.entries(grouped).map(([group, items]) => (
                 <div key={group} className="mb-4">
-                  <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wider text-[var(--label-secondary)]">
+                  <h3 className="mb-1 text-[13px] font-semibold uppercase tracking-wider text-[var(--label-secondary)]">
                     {MUSCLE_GROUP_LABELS[group as MuscleGroup] ?? group}
                   </h3>
                   <div className="rounded-[12px] bg-[var(--background-tertiary)]">
@@ -125,7 +125,7 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
                         key={exercise.id}
                         type="button"
                         onClick={() => void handleSelect(exercise)}
-                        className={`flex w-full items-center px-3 py-3 text-left text-[15px] tap-highlight-transparent active:bg-[var(--fill-quaternary)] ${
+                        className={`flex w-full items-center px-3 py-4 text-left text-[16px] tap-highlight-transparent active:bg-[var(--fill-quaternary)] ${
                           i > 0 ? "border-t border-[var(--line)]" : ""
                         }`}
                       >
@@ -143,7 +143,7 @@ export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-[var(--fill-tertiary)] py-3 text-[14px] font-medium text-[var(--foreground)] tap-highlight-transparent active:opacity-80"
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[12px] bg-[var(--fill-tertiary)] py-4 text-[15px] font-medium text-[var(--foreground)] tap-highlight-transparent active:opacity-80 min-h-[50px]"
             >
               <Plus className="size-4" />
               Crear Ejercicio

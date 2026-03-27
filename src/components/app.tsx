@@ -199,7 +199,7 @@ function AuthenticatedApp({
       {/* Active session pill */}
       {activeSession && !overlayVisible && (
         <div
-          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+76px)] left-1/2 z-40 -translate-x-1/2 flex items-center rounded-full"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] left-1/2 z-40 -translate-x-1/2 flex items-center rounded-full"
           style={{
             background: "#1C1C1E",
             boxShadow:

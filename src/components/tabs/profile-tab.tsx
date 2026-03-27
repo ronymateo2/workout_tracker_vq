@@ -53,7 +53,7 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-semibold">{displayName}</p>
-          <p className="truncate text-[13px] text-[var(--label-secondary)]">
+          <p className="truncate text-[14px] text-[var(--label-secondary)]">
             {user.email}
           </p>
         </div>
@@ -61,7 +61,7 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
 
       {/* Stats */}
       <div className="mb-6 rounded-[16px] bg-[var(--background-secondary)] p-4">
-        <p className="text-[13px] text-[var(--label-secondary)]">
+        <p className="text-[14px] text-[var(--label-secondary)]">
           Total Entrenamientos
         </p>
         <p className="text-[28px] font-bold text-[var(--accent)]">

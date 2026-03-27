@@ -50,7 +50,7 @@ export function AlertDialog({
                   {title}
                 </p>
                 {description && (
-                  <p className="mt-1 text-[13px] text-[var(--label-secondary)]">
+                  <p className="mt-1 text-[14px] text-[var(--label-secondary)]">
                     {description}
                   </p>
                 )}
@@ -63,7 +63,7 @@ export function AlertDialog({
                     key={i}
                     type="button"
                     onClick={action.onClick}
-                    className={`flex w-full items-center justify-center border-t border-[var(--line)] py-[11px] text-[17px] transition active:bg-white/10 first:border-t-0 ${
+                    className={`flex w-full items-center justify-center border-t border-[var(--line)] py-[14px] text-[17px] transition active:bg-white/10 first:border-t-0 ${
                       action.variant === "danger"
                         ? "text-[var(--danger)]"
                         : action.variant === "cancel"

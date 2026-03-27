@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, ClipboardList, Search, Dumbbell, MoreHorizontal } from "lucide-react";
+import { Plus, Play, Dumbbell, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useWorkoutSession } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
 import { getRoutinesWithExerciseNames } from "@/lib/data";
 import { getRoutinesCache, setRoutinesCache } from "@/lib/db";
 import type { Routine, RoutineWithExercises } from "@/types/models";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { CreateRoutine } from "@/components/workout/create-routine";
@@ -36,12 +35,10 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
     void setRoutinesCache(user.id, r);
   }, [user, supabase]);
 
-  // Alias used by create/edit/delete callbacks to force a fresh fetch
   const loadRoutines = fetchRoutines;
 
   useEffect(() => {
     if (!user) return;
-    // Show cache instantly, then background-sync from Supabase
     getRoutinesCache(user.id).then((cached) => {
       if (cached) setRoutines(cached);
       void fetchRoutines();
@@ -67,79 +64,73 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
 
   return (
     <div className="safe-top px-4">
-      <h1 className="pt-2 pb-4 text-[34px] font-bold tracking-tight">Entreno</h1>
-
-      {/* Start Empty Workout */}
-      <Button
-        variant="secondary"
-        size="lg"
-        onClick={() => handleStartWorkout()}
-        className="mb-6"
-      >
-        <Plus className="size-5" />
-        Empezar Entreno Vacío
-      </Button>
-
-      {/* Routines section */}
-      <h2 className="mb-3 text-[20px] font-bold">Rutinas</h2>
-
-      {/* Grid: New Routine + Explore */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
+      {/* Header */}
+      <div className="flex items-end justify-between pt-2 pb-6">
+        <h1 className="text-[34px] font-bold tracking-tight">Entreno</h1>
         <button
           type="button"
           onClick={() => setShowCreateRoutine(true)}
-          className="flex flex-col items-center gap-2 rounded-[16px] bg-[var(--background-secondary)] p-5 tap-highlight-transparent active:opacity-80"
+          className="mb-1 flex items-center gap-1 text-[var(--accent)] text-[17px] font-medium tap-highlight-transparent active:opacity-60"
         >
-          <ClipboardList className="size-7 text-[var(--label-secondary)]" />
-          <span className="text-[14px] font-semibold">Nueva Rutina</span>
-        </button>
-        <button
-          type="button"
-          className="flex flex-col items-center gap-2 rounded-[16px] bg-[var(--background-secondary)] p-5 tap-highlight-transparent active:opacity-80"
-        >
-          <Search className="size-7 text-[var(--label-secondary)]" />
-          <span className="text-[14px] font-semibold">Explorar Rutinas</span>
+          <Plus className="size-5" />
+          Nueva
         </button>
       </div>
 
-      {/* Routine List */}
+      {/* Start empty workout */}
+      <button
+        type="button"
+        onClick={() => handleStartWorkout()}
+        className="mb-8 flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--fill-tertiary)] py-4 text-[16px] font-medium text-[var(--label-secondary)] tap-highlight-transparent active:opacity-70"
+      >
+        <Plus className="size-5" />
+        Entreno vacío
+      </button>
+
+      {/* Routine list */}
       {routines.length === 0 ? (
         <EmptyState
           icon={<Dumbbell className="size-10" />}
           message="Crea tu primera rutina para empezar a entrenar."
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          {routines.map((routine) => (
-            <div
-              key={routine.id}
-              className="rounded-[16px] bg-[var(--background-secondary)] p-4"
-            >
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[17px] font-bold">{routine.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRoutineId(routine.id)}
-                  className="rounded-full p-1 tap-highlight-transparent active:opacity-60"
-                >
-                  <MoreHorizontal className="size-5 text-[var(--label-secondary)]" />
-                </button>
+        <>
+          <p className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-widest text-[var(--label-secondary)]">
+            Rutinas
+          </p>
+          <div className="ios-list">
+            {routines.map((routine) => (
+              <div key={routine.id} className="ios-list-item">
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[17px] font-semibold text-[var(--foreground)]">
+                      {routine.name}
+                    </p>
+                    {routine.exerciseNames.length > 0 && (
+                      <p className="mt-0.5 truncate text-[14px] leading-snug text-[var(--label-secondary)]">
+                        {routine.exerciseNames.join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartWorkout(routine.id)}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] tap-highlight-transparent active:opacity-80"
+                  >
+                    <Play className="size-4 translate-x-px fill-white text-white" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRoutineId(routine.id)}
+                    className="-mr-2 p-2 tap-highlight-transparent active:opacity-60"
+                  >
+                    <MoreHorizontal className="size-5 text-[var(--label-tertiary)]" />
+                  </button>
+                </div>
               </div>
-              {routine.exerciseNames.length > 0 && (
-                <p className="mb-3 text-[13px] text-[var(--label-secondary)] leading-snug">
-                  {routine.exerciseNames.join(", ")}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => handleStartWorkout(routine.id)}
-                className="w-full rounded-[12px] bg-[var(--accent)] py-3 text-[15px] font-semibold text-white tap-highlight-transparent active:opacity-80"
-              >
-                Iniciar Rutina
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Create / Edit Routine Sheet */}

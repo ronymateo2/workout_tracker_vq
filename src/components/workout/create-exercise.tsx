@@ -99,7 +99,7 @@ export function CreateExercise({
       <div className="space-y-5 px-4 py-4">
         {/* Name */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-[var(--label-secondary)]">
+          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
             Nombre
           </label>
           <input
@@ -114,7 +114,7 @@ export function CreateExercise({
 
         {/* Exercise Type */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-[var(--label-secondary)]">
+          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
             Tipo de Ejercicio
           </label>
           <div className="flex flex-wrap gap-2">
@@ -124,7 +124,7 @@ export function CreateExercise({
                 type="button"
                 onClick={() => setExerciseType(type)}
                 className={clsx(
-                  "rounded-[10px] px-3 py-2 text-[13px] font-medium tap-highlight-transparent transition",
+                  "rounded-[12px] px-4 py-2.5 text-[14px] font-medium tap-highlight-transparent transition",
                   exerciseType === type
                     ? "bg-[var(--accent)] text-white"
                     : "bg-[var(--fill-tertiary)] text-[var(--foreground)]",
@@ -158,7 +158,7 @@ export function CreateExercise({
 
         {/* Muscle Groups */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-[var(--label-secondary)]">
+          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
             Grupos Musculares
           </label>
           <div className="flex flex-wrap gap-2">
@@ -168,7 +168,7 @@ export function CreateExercise({
                 type="button"
                 onClick={() => toggleMuscle(muscle)}
                 className={clsx(
-                  "rounded-[10px] px-3 py-2 text-[13px] font-medium tap-highlight-transparent transition",
+                  "rounded-[12px] px-4 py-2.5 text-[14px] font-medium tap-highlight-transparent transition",
                   selectedMuscles.includes(muscle)
                     ? "bg-[var(--accent)] text-white"
                     : "bg-[var(--fill-tertiary)] text-[var(--foreground)]",

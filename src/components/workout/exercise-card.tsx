@@ -76,8 +76,8 @@ function SwipeableSetRow({
           className="flex h-full w-full flex-col items-center justify-center gap-0.5 tap-highlight-transparent"
         >
           <motion.span style={{ scale: deleteScale }} className="flex flex-col items-center gap-0.5">
-            <Trash2 className="size-4 text-white" />
-            <span className="text-[11px] font-semibold text-white">Borrar</span>
+            <Trash2 className="size-5 text-white" />
+            <span className="text-[13px] font-semibold text-white">Borrar</span>
           </motion.span>
         </button>
       </motion.div>
@@ -96,7 +96,7 @@ function SwipeableSetRow({
         <div
           onPointerDown={startDrag}
           className={clsx(
-            "relative grid items-center gap-x-2 py-1.5",
+            "relative grid items-center gap-x-2 py-2",
             completed && "bg-[var(--accent-soft)]",
           )}
           style={{ gridTemplateColumns: template }}
@@ -188,7 +188,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
       <div className="px-4 pb-0">
         {/* Header row */}
         <div
-          className="mb-0.5 grid items-center gap-x-2 text-[11px] font-medium text-[var(--label-secondary)]"
+          className="mb-1 grid items-center gap-x-2 text-[13px] font-medium text-[var(--label-secondary)]"
           style={{ gridTemplateColumns: columns.template }}
         >
           <span className="text-center">Set</span>
@@ -230,7 +230,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
             {/* Set number badge */}
             <div className="flex justify-center">
               <span className={clsx(
-                "flex size-6 items-center justify-center rounded-full text-[12px] font-bold",
+                "flex size-7 items-center justify-center rounded-full text-[13px] font-bold",
                 set.completed
                   ? "bg-[var(--accent)] text-white"
                   : "bg-[var(--fill-tertiary)] text-[var(--label-secondary)]",
@@ -250,15 +250,15 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                         style={{ backgroundColor: BAND_COLOR_HEX[prevSets[idx].band_color!] }}
                       />
                     )}
-                    <span className="text-[11px] text-[var(--label-secondary)]">
+                    <span className="text-[13px] text-[var(--label-secondary)]">
                       {prevSets[idx].reps != null ? `× ${prevSets[idx].reps}` : "—"}
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[11px] text-[var(--label-secondary)]">—</span>
+                  <span className="text-[13px] text-[var(--label-secondary)]">—</span>
                 )
               ) : (
-                <span className="text-[11px] text-[var(--label-secondary)]">
+                <span className="text-[13px] text-[var(--label-secondary)]">
                   {prevSets?.[idx] ? formatPrevCell(prevSets[idx], type) : "—"}
                 </span>
               )}
@@ -299,7 +299,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                   value={set.band_resistance ?? ""}
                   onChange={(e) => handleInputChange(set.id, "band_resistance", e.target.value)}
                   className={clsx(
-                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none",
+                    "w-full rounded-[8px] px-1 py-2 text-center text-[16px] font-semibold text-[var(--foreground)] outline-none",
                     set.completed
                       ? "bg-transparent text-[var(--label-secondary)]"
                       : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
@@ -317,7 +317,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                     : { x: 0 }}
                   transition={{ duration: 0.42 }}
                   className={clsx(
-                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none transition-[box-shadow] duration-300",
+                    "w-full rounded-[8px] px-1 py-2 text-center text-[16px] font-semibold text-[var(--foreground)] outline-none transition-[box-shadow] duration-300",
                     set.completed
                       ? "bg-transparent text-[var(--label-secondary)]"
                       : shakingId === set.id
@@ -352,7 +352,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                     animate={shaking ? { x: [0, -7, 7, -5, 5, -3, 3, 0] } : { x: 0 }}
                     transition={{ duration: 0.42 }}
                     className={clsx(
-                      "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold outline-none transition-[box-shadow] duration-300",
+                      "w-full rounded-[8px] px-1 py-2 text-center text-[16px] font-semibold outline-none transition-[box-shadow] duration-300",
                       set.completed
                         ? "bg-transparent text-[var(--label-secondary)]"
                         : shaking
@@ -370,19 +370,23 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => handleToggle(set)}
-                className={clsx(
-                  "flex size-7 items-center justify-center rounded-full border-2 tap-highlight-transparent transition-colors",
-                  set.completed
-                    ? "border-[var(--success)] bg-[var(--success)]"
-                    : requiresReps && !(set.reps && set.reps > 0)
-                      ? "border-[var(--separator)] bg-transparent opacity-30"
-                      : "border-[var(--separator)] bg-transparent",
-                )}
+                className="flex size-11 items-center justify-center tap-highlight-transparent"
               >
-                <Check
-                  className={clsx("size-4", set.completed ? "text-white" : "text-transparent")}
-                  strokeWidth={2.5}
-                />
+                <span
+                  className={clsx(
+                    "flex size-7 items-center justify-center rounded-full border-2 transition-colors",
+                    set.completed
+                      ? "border-[var(--success)] bg-[var(--success)]"
+                      : requiresReps && !(set.reps && set.reps > 0)
+                        ? "border-[var(--separator)] bg-transparent opacity-30"
+                        : "border-[var(--separator)] bg-transparent",
+                  )}
+                >
+                  <Check
+                    className={clsx("size-4", set.completed ? "text-white" : "text-transparent")}
+                    strokeWidth={2.5}
+                  />
+                </span>
               </button>
             </div>
           </SwipeableSetRow>
@@ -393,9 +397,9 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
       <button
         type="button"
         onClick={() => void addSet(entry.id)}
-        className="flex w-full items-center justify-center gap-1.5 py-3 text-[13px] font-medium text-[var(--accent)] tap-highlight-transparent active:opacity-60"
+        className="flex w-full items-center justify-center gap-1.5 py-4 text-[15px] font-semibold text-[var(--accent)] tap-highlight-transparent active:opacity-60"
       >
-        <Plus className="size-4" />
+        <Plus className="size-5" />
         Agregar Serie
       </button>
     </div>
@@ -428,7 +432,7 @@ function DurationInput({
   };
 
   const inputCls = clsx(
-    "w-full rounded-[8px] py-1.5 text-center text-[14px] font-semibold outline-none transition-colors",
+    "w-full rounded-[8px] py-2 text-center text-[16px] font-semibold outline-none transition-colors",
     completed
       ? "bg-transparent text-[var(--label-secondary)]"
       : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
@@ -527,7 +531,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
   switch (type) {
     case "weight_reps":
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 44px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },
@@ -535,17 +539,17 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bodyweight_reps":
       return {
-        template: "28px minmax(0,1fr) 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 44px",
         fields: [{ key: "reps", label: "Reps", placeholder: "0" }],
       };
     case "duration":
       return {
-        template: "28px minmax(0,1fr) 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 44px",
         fields: [{ key: "duration_seconds", label: "Seg", placeholder: "0" }],
       };
     case "duration_weight":
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 44px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -553,7 +557,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "distance_duration":
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 44px",
         fields: [
           { key: "distance_m", label: "M", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -561,7 +565,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "weight_distance":
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 44px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "distance_m", label: "M", placeholder: "0" },
@@ -569,12 +573,12 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bands":
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 1fr 44px",
         fields: [],
       };
     default:
       return {
-        template: "28px minmax(0,1fr) 1fr 1fr 36px",
+        template: "32px minmax(0,1fr) 1fr 1fr 44px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },

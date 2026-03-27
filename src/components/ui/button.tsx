@@ -28,9 +28,9 @@ export function Button({
           "bg-[var(--danger)] text-white": variant === "danger",
         },
         {
-          "rounded-[10px] px-3 py-2 text-[14px]": size === "sm",
-          "rounded-[14px] px-4 py-3 text-[15px]": size === "md",
-          "rounded-[14px] px-5 py-4 text-[16px]": size === "lg",
+          "rounded-[12px] px-4 py-2.5 text-[15px] min-h-[44px]": size === "sm",
+          "rounded-[14px] px-5 py-3.5 text-[16px] min-h-[44px]": size === "md",
+          "rounded-[14px] px-5 py-4 text-[17px] min-h-[50px]": size === "lg",
         },
         className,
       )}

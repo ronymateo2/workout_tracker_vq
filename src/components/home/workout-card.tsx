@@ -12,15 +12,13 @@ export function WorkoutCard({ workout }: WorkoutCardProps) {
   const timeAgo = formatDistanceToNow(new Date(workout.started_at), {
     addSuffix: true,
     locale: es,
-  });
+  }).toUpperCase();
 
-  // Calculate duration
   const durationMs = workout.finished_at
     ? new Date(workout.finished_at).getTime() - new Date(workout.started_at).getTime()
     : 0;
   const durationMin = Math.round(durationMs / 60000);
 
-  // Calculate total volume
   let totalVolume = 0;
   let totalSets = 0;
   for (const entry of workout.entries) {
@@ -35,56 +33,57 @@ export function WorkoutCard({ workout }: WorkoutCardProps) {
   }
 
   return (
-    <div className="rounded-[16px] bg-[var(--background-secondary)] p-4">
+    <div className="overflow-hidden rounded-[20px] bg-[var(--background-secondary)]">
       {/* Header */}
-      <div className="mb-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--label-secondary)]">
+      <div className="px-4 pt-4 pb-3">
+        <p className="mb-0.5 text-[12px] font-semibold tracking-widest text-[var(--label-secondary)]">
           {timeAgo}
         </p>
-        <h3 className="text-[17px] font-semibold">
+        <p className="text-[19px] font-bold text-[var(--foreground)]">
           {workout.notes || "Entreno"}
-        </h3>
+        </p>
       </div>
 
       {/* Stats */}
-      <div className="mb-3 flex gap-4">
-        <div>
-          <p className="text-[11px] text-[var(--label-secondary)]">Duración</p>
-          <p className="text-[15px] font-semibold text-[var(--accent)]">
-            {durationMin}min
+      <div className="flex gap-0 border-t border-[var(--line)]">
+        <div className="flex-1 px-4 py-3">
+          <p className="text-[28px] font-bold leading-none text-[var(--accent)]">
+            {durationMin}
           </p>
+          <p className="mt-1 text-[12px] text-[var(--label-secondary)]">min</p>
         </div>
-        <div>
-          <p className="text-[11px] text-[var(--label-secondary)]">Volumen</p>
-          <p className="text-[15px] font-semibold text-[var(--accent)]">
-            {totalVolume > 0 ? `${Math.round(totalVolume)} kg` : "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] text-[var(--label-secondary)]">Series</p>
-          <p className="text-[15px] font-semibold text-[var(--accent)]">
+        <div className="w-px bg-[var(--line)]" />
+        <div className="flex-1 px-4 py-3">
+          <p className="text-[28px] font-bold leading-none text-[var(--foreground)]">
             {totalSets}
           </p>
+          <p className="mt-1 text-[12px] text-[var(--label-secondary)]">series</p>
         </div>
+        {totalVolume > 0 && (
+          <>
+            <div className="w-px bg-[var(--line)]" />
+            <div className="flex-1 px-4 py-3">
+              <p className="text-[28px] font-bold leading-none text-[var(--foreground)]">
+                {Math.round(totalVolume)}
+              </p>
+              <p className="mt-1 text-[12px] text-[var(--label-secondary)]">kg</p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Exercise list */}
+      {/* Exercise chips */}
       {workout.entries.length > 0 && (
-        <div className="border-t border-[var(--line)] pt-2">
+        <div className="flex flex-wrap gap-1.5 border-t border-[var(--line)] px-4 py-3">
           {workout.entries.map((entry) => {
-            const completedSets = entry.sets.filter((s) => s.completed).length;
+            const completed = entry.sets.filter((s) => s.completed).length;
             return (
-              <div
+              <span
                 key={entry.id}
-                className="flex items-center gap-2 py-1 text-[14px]"
+                className="rounded-full bg-[var(--fill-tertiary)] px-3 py-1 text-[13px] font-medium text-[var(--foreground)]"
               >
-                <span className="text-[var(--label-secondary)]">
-                  {completedSets} series
-                </span>
-                <span className="text-[var(--foreground)]">
-                  {entry.exercise.name}
-                </span>
-              </div>
+                {completed > 0 ? `${completed}×` : ""} {entry.exercise.name}
+              </span>
             );
           })}
         </div>
