@@ -21,12 +21,19 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   const { user } = useAuth();
   const { supabase } = useData();
   const { activeSession, startWorkout, discardWorkout } = useWorkoutSession();
-  const [routines, setRoutines] = useState<(Routine & { exerciseNames: string[] })[]>([]);
+  const [routines, setRoutines] = useState<
+    (Routine & { exerciseNames: string[] })[]
+  >([]);
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
-  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
-  const [routineToEdit, setRoutineToEdit] = useState<RoutineWithExercises | null>(null);
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
+    null,
+  );
+  const [routineToEdit, setRoutineToEdit] =
+    useState<RoutineWithExercises | null>(null);
   // undefined = no pending action, null = empty workout, string = routineId
-  const [pendingRoutineId, setPendingRoutineId] = useState<string | null | undefined>(undefined);
+  const [pendingRoutineId, setPendingRoutineId] = useState<
+    string | null | undefined
+  >(undefined);
 
   const fetchRoutines = useCallback(async () => {
     if (!user || !supabase) return;
@@ -84,7 +91,7 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
         className="mb-8 flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--fill-tertiary)] py-4 text-[16px] font-medium text-[var(--label-secondary)] tap-highlight-transparent active:opacity-70"
       >
         <Plus className="size-5" />
-        Entreno vacío
+        Entreno Libre
       </button>
 
       {/* Routine list */}
