@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-client";
 import { useWorkout } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
 import { getRoutinesWithExerciseNames } from "@/lib/data";
-import type { Routine } from "@/types/models";
+import type { Routine, RoutineWithExercises } from "@/types/models";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AlertDialog } from "@/components/ui/alert-dialog";
@@ -24,6 +24,7 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   const [routines, setRoutines] = useState<(Routine & { exerciseNames: string[] })[]>([]);
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
+  const [routineToEdit, setRoutineToEdit] = useState<RoutineWithExercises | null>(null);
   // undefined = no pending action, null = empty workout, string = routineId
   const [pendingRoutineId, setPendingRoutineId] = useState<string | null | undefined>(undefined);
 
@@ -128,14 +129,19 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
         </div>
       )}
 
-      {/* Create Routine Sheet */}
+      {/* Create / Edit Routine Sheet */}
       <CreateRoutine
-        open={showCreateRoutine}
-        onClose={() => setShowCreateRoutine(false)}
+        open={showCreateRoutine || !!routineToEdit}
+        onClose={() => {
+          setShowCreateRoutine(false);
+          setRoutineToEdit(null);
+        }}
         onSaved={() => {
           setShowCreateRoutine(false);
+          setRoutineToEdit(null);
           loadRoutines();
         }}
+        routineToEdit={routineToEdit}
       />
 
       {/* Routine Detail Sheet */}
@@ -152,6 +158,11 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
             setSelectedRoutineId(null);
             handleStartWorkout(selectedRoutineId);
           }}
+          onEdit={(routine) => {
+            setSelectedRoutineId(null);
+            setRoutineToEdit(routine);
+          }}
+          onDuplicated={loadRoutines}
         />
       )}
 

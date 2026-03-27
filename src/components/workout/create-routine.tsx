@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Dumbbell, X, Minus } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
-import { createRoutine } from "@/lib/data";
-import type { Exercise, Routine, RoutineExercise } from "@/types/models";
+import { createRoutine, updateRoutine } from "@/lib/data";
+import type { Exercise, Routine, RoutineExercise, RoutineWithExercises } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,6 +15,7 @@ interface CreateRoutineProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  routineToEdit?: RoutineWithExercises | null;
 }
 
 interface RoutineExerciseItem {
@@ -22,12 +23,35 @@ interface RoutineExerciseItem {
   defaultSets: number;
 }
 
-export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
+export function CreateRoutine({
+  open,
+  onClose,
+  onSaved,
+  routineToEdit,
+}: CreateRoutineProps) {
   const { user } = useAuth();
   const { supabase } = useData();
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<RoutineExerciseItem[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+
+  // Initialize state when opening in edit mode or reset for create mode
+  useEffect(() => {
+    if (open) {
+      if (routineToEdit) {
+        setName(routineToEdit.name);
+        setExercises(
+          routineToEdit.exercises.map((re) => ({
+            exercise: re.exercise,
+            defaultSets: re.default_sets,
+          })),
+        );
+      } else {
+        setName("");
+        setExercises([]);
+      }
+    }
+  }, [open, routineToEdit]);
 
   const handlePickExercise = (exercise: Exercise) => {
     setExercises((prev) => [...prev, { exercise, defaultSets: 3 }]);
@@ -50,31 +74,52 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
   const handleSave = async () => {
     if (!user || !supabase || !name.trim()) return;
 
-    const routine: Routine = {
-      id: crypto.randomUUID(),
-      user_id: user.id,
-      name: name.trim(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (routineToEdit) {
+      // Edit mode
+      const updatedRoutine: Routine = {
+        ...routineToEdit,
+        name: name.trim(),
+        updated_at: new Date().toISOString(),
+      };
+      const routineExercises: RoutineExercise[] = exercises.map((item, i) => ({
+        id: crypto.randomUUID(),
+        routine_id: routineToEdit.id,
+        exercise_id: item.exercise.id,
+        position: i,
+        default_sets: item.defaultSets,
+      }));
+      await updateRoutine(supabase, updatedRoutine, routineExercises);
+    } else {
+      // Create mode
+      const routine: Routine = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        name: name.trim(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const routineExercises: RoutineExercise[] = exercises.map((item, i) => ({
+        id: crypto.randomUUID(),
+        routine_id: routine.id,
+        exercise_id: item.exercise.id,
+        position: i,
+        default_sets: item.defaultSets,
+      }));
+      await createRoutine(supabase, routine, routineExercises);
+    }
 
-    const routineExercises: RoutineExercise[] = exercises.map((item, i) => ({
-      id: crypto.randomUUID(),
-      routine_id: routine.id,
-      exercise_id: item.exercise.id,
-      position: i,
-      default_sets: item.defaultSets,
-    }));
-
-    await createRoutine(supabase, routine, routineExercises);
-    setName("");
-    setExercises([]);
     onSaved();
   };
 
+  const isEditing = !!routineToEdit;
+
   return (
     <>
-      <Sheet open={open} onClose={onClose} title="Crear Rutina">
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title={isEditing ? "Editar Rutina" : "Crear Rutina"}
+      >
         <div className="px-4 py-4">
           {/* Name input */}
           <div className="mb-4">
@@ -84,7 +129,6 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre de la rutina"
               className="w-full border-b border-[var(--line)] bg-transparent pb-2 text-[20px] font-bold text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
-
             />
           </div>
 
@@ -153,14 +197,14 @@ export function CreateRoutine({ open, onClose, onSaved }: CreateRoutineProps) {
           </Button>
 
           {/* Save */}
-          {exercises.length > 0 && (
+          {(isEditing || exercises.length > 0) && (
             <Button
               variant="secondary"
               size="lg"
               onClick={() => void handleSave()}
               disabled={!name.trim()}
             >
-              Guardar Rutina
+              {isEditing ? "Guardar Cambios" : "Guardar Rutina"}
             </Button>
           )}
         </div>
