@@ -6,7 +6,7 @@ import { motion, useMotionValue, useTransform, animate, useDragControls } from "
 import type { PanInfo } from "framer-motion";
 import clsx from "clsx";
 import type { WorkoutEntryWithDetails, WorkoutSet, ExerciseType, BandColor } from "@/types/models";
-import { useWorkout } from "@/lib/workout-context";
+import { useWorkoutEntries } from "@/lib/workout-context";
 import { BAND_COLOR_LABELS } from "@/types/models";
 
 const BAND_COLOR_HEX: Record<BandColor, string> = {
@@ -119,7 +119,7 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
-  const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkout();
+  const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkoutEntries();
   const [showMenu, setShowMenu] = useState(false);
   const [shakingId, setShakingId] = useState<string | null>(null);
   const type = entry.exercise.exercise_type;

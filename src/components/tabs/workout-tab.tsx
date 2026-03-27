@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, ClipboardList, Search, Dumbbell, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
-import { useWorkout } from "@/lib/workout-context";
+import { useWorkoutSession } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
 import { getRoutinesWithExerciseNames } from "@/lib/data";
 import type { Routine, RoutineWithExercises } from "@/types/models";
@@ -20,7 +20,7 @@ interface WorkoutTabProps {
 export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   const { user } = useAuth();
   const { supabase } = useData();
-  const { activeSession, startWorkout, discardWorkout } = useWorkout();
+  const { activeSession, startWorkout, discardWorkout } = useWorkoutSession();
   const [routines, setRoutines] = useState<(Routine & { exerciseNames: string[] })[]>([]);
   const [showCreateRoutine, setShowCreateRoutine] = useState(false);
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
@@ -38,19 +38,22 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
     loadRoutines();
   }, [loadRoutines]);
 
-  function handleStartWorkout(routineId?: string) {
-    if (activeSession) {
-      setPendingRoutineId(routineId ?? null);
-    } else {
-      void startWorkout(routineId);
-    }
-  }
+  const handleStartWorkout = useCallback(
+    (routineId?: string) => {
+      if (activeSession) {
+        setPendingRoutineId(routineId ?? null);
+      } else {
+        void startWorkout(routineId);
+      }
+    },
+    [activeSession, startWorkout],
+  );
 
-  async function confirmNewSession() {
+  const confirmNewSession = useCallback(async () => {
     await discardWorkout();
     await startWorkout(pendingRoutineId ?? undefined);
     setPendingRoutineId(undefined);
-  }
+  }, [discardWorkout, startWorkout, pendingRoutineId]);
 
   return (
     <div className="safe-top px-4">

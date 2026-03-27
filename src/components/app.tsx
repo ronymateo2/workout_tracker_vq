@@ -5,7 +5,7 @@ import { Dumbbell, LoaderCircle, X } from "lucide-react";
 
 import { AuthProvider, useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
-import { WorkoutProvider, useWorkout } from "@/lib/workout-context";
+import { WorkoutProvider, useWorkoutSession } from "@/lib/workout-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { TabBar, type TabId } from "./tab-bar";
 import { HomeTab } from "./tabs/home-tab";
@@ -155,7 +155,7 @@ function AuthenticatedApp({
   const [activeTab, setActiveTab] = useState<TabId>("workout");
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const { activeSession, loading, discardWorkout } = useWorkout();
+  const { activeSession, loading, discardWorkout } = useWorkoutSession();
   const hasInitialized = useRef(false);
 
   const handleResumeWorkout = useCallback(() => {

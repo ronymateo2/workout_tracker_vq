@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
-import { useWorkout } from "@/lib/workout-context";
+import { useWorkoutEntries } from "@/lib/workout-context";
 import { getExercises } from "@/lib/data";
 import type { Exercise, MuscleGroup } from "@/types/models";
 import { MUSCLE_GROUP_LABELS } from "@/types/models";
@@ -20,7 +20,7 @@ interface ExercisePickerProps {
 export function ExercisePicker({ open, onClose, onPick }: ExercisePickerProps) {
   const { user } = useAuth();
   const { supabase } = useData();
-  const { addExercise } = useWorkout();
+  const { addExercise } = useWorkoutEntries();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
