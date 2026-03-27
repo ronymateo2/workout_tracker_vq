@@ -127,7 +127,8 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
     field: keyof WorkoutSet,
     value: string,
   ) => {
-    const num = value === "" ? null : Number(value);
+    if (value === "") { void updateSet(setId, { [field]: null }); return; }
+    const num = Math.max(0, Number(value));
     void updateSet(setId, { [field]: num });
   };
 
@@ -180,6 +181,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
           {type === "bands" ? (
             <>
               <span className="text-center">Banda</span>
+              <span className="text-center">KG</span>
               <span className="text-center">Reps</span>
             </>
           ) : (
@@ -241,7 +243,22 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                 </div>
                 <input
                   type="number"
+                  inputMode="decimal"
+                  min="0"
+                  placeholder="0"
+                  value={set.band_resistance ?? ""}
+                  onChange={(e) => handleInputChange(set.id, "band_resistance", e.target.value)}
+                  className={clsx(
+                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none",
+                    set.completed
+                      ? "bg-transparent text-[var(--label-secondary)]"
+                      : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
+                  )}
+                />
+                <input
+                  type="number"
                   inputMode="numeric"
+                  min="0"
                   placeholder="0"
                   value={set.reps ?? ""}
                   onChange={(e) => handleInputChange(set.id, "reps", e.target.value)}
@@ -249,7 +266,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                     "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none",
                     set.completed
                       ? "bg-transparent text-[var(--label-secondary)]"
-                      : "bg-[var(--fill-quaternary)]",
+                      : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
                   )}
                 />
               </>
@@ -259,6 +276,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                   key={f.key}
                   type="number"
                   inputMode="decimal"
+                  min="0"
                   placeholder={f.placeholder}
                   value={(set[f.key as keyof WorkoutSet] as number | null) ?? ""}
                   onChange={(e) => handleInputChange(set.id, f.key as keyof WorkoutSet, e.target.value)}
@@ -367,7 +385,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bands":
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px 1fr 1fr 1fr 36px",
         fields: [],
       };
     default:
