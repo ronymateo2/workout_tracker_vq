@@ -5,9 +5,10 @@ import { Plus, MoreVertical, Trash2, Check } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate, useDragControls } from "framer-motion";
 import type { PanInfo } from "framer-motion";
 import clsx from "clsx";
-import type { WorkoutEntryWithDetails, WorkoutSet, ExerciseType, BandColor } from "@/types/models";
+import type { WorkoutEntryWithDetails, WorkoutSet, ExerciseType, BandColor, Exercise } from "@/types/models";
 import { useWorkoutEntries } from "@/lib/workout-context";
 import { BAND_COLOR_LABELS } from "@/types/models";
+import { ExerciseInfoSheet } from "./exercise-info-sheet";
 
 const BAND_COLOR_HEX: Record<BandColor, string> = {
   yellow: "#FFCC00",
@@ -122,6 +123,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
   const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkoutEntries();
   const [showMenu, setShowMenu] = useState(false);
   const [shakingId, setShakingId] = useState<string | null>(null);
+  const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const type = entry.exercise.exercise_type;
 
   const handleInputChange = (
@@ -149,12 +151,17 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
   const columns = getColumns(type);
 
   return (
+    <>
     <div className="overflow-hidden rounded-[16px] bg-[var(--background-secondary)]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pb-1 pt-4">
-        <h3 className="text-[17px] font-semibold text-[var(--foreground)]">
+        <button
+          type="button"
+          onClick={() => setInfoExercise(entry.exercise)}
+          className="text-left text-[17px] font-semibold text-[var(--foreground)] tap-highlight-transparent active:opacity-60"
+        >
           {entry.exercise.name}
-        </h3>
+        </button>
         <div className="relative">
           <button
             type="button"
@@ -403,6 +410,11 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
         Agregar Serie
       </button>
     </div>
+    <ExerciseInfoSheet
+      exercise={infoExercise}
+      onClose={() => setInfoExercise(null)}
+    />
+    </>
   );
 }
 
