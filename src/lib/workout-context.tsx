@@ -61,6 +61,7 @@ function clearStorage() {
 interface WorkoutSessionContextValue {
   activeSession: WorkoutSession | null;
   loading: boolean;
+  lastFinishedAt: string | null;
   startWorkout: (routineId?: string) => Promise<void>;
   finishWorkout: () => Promise<void>;
   discardWorkout: () => Promise<void>;
@@ -69,6 +70,7 @@ interface WorkoutSessionContextValue {
 const WorkoutSessionContext = createContext<WorkoutSessionContextValue>({
   activeSession: null,
   loading: true,
+  lastFinishedAt: null,
   startWorkout: async () => {},
   finishWorkout: async () => {},
   discardWorkout: async () => {},
@@ -127,6 +129,7 @@ export function WorkoutProvider({
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastFinishedAt, setLastFinishedAt] = useState<string | null>(null);
   const [prevSetsMap, setPrevSetsMap] = useState<Record<string, WorkoutSet[]>>({});
   const fetchedPrevSetIds = useRef<Set<string>>(new Set());
 
@@ -258,6 +261,7 @@ export function WorkoutProvider({
     clearStorage();
     entriesRef.current = [];
     fetchedPrevSetIds.current = new Set();
+    setLastFinishedAt(new Date().toISOString());
     setActiveSession(null);
     setEntries([]);
     setPrevSetsMap({});
@@ -384,8 +388,8 @@ export function WorkoutProvider({
   );
 
   const sessionValue = useMemo(
-    () => ({ activeSession, loading, startWorkout, finishWorkout, discardWorkout }),
-    [activeSession, loading, startWorkout, finishWorkout, discardWorkout],
+    () => ({ activeSession, loading, lastFinishedAt, startWorkout, finishWorkout, discardWorkout }),
+    [activeSession, loading, lastFinishedAt, startWorkout, finishWorkout, discardWorkout],
   );
 
   const entriesValue = useMemo(

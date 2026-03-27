@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-client";
 import { useWorkoutSession } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
 import { getRoutinesWithExerciseNames } from "@/lib/data";
+import { getRoutinesCache, setRoutinesCache } from "@/lib/db";
 import type { Routine, RoutineWithExercises } from "@/types/models";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -28,15 +29,24 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   // undefined = no pending action, null = empty workout, string = routineId
   const [pendingRoutineId, setPendingRoutineId] = useState<string | null | undefined>(undefined);
 
-  const loadRoutines = useCallback(async () => {
+  const fetchRoutines = useCallback(async () => {
     if (!user || !supabase) return;
     const r = await getRoutinesWithExerciseNames(supabase, user.id);
     setRoutines(r);
+    void setRoutinesCache(user.id, r);
   }, [user, supabase]);
 
+  // Alias used by create/edit/delete callbacks to force a fresh fetch
+  const loadRoutines = fetchRoutines;
+
   useEffect(() => {
-    loadRoutines();
-  }, [loadRoutines]);
+    if (!user) return;
+    // Show cache instantly, then background-sync from Supabase
+    getRoutinesCache(user.id).then((cached) => {
+      if (cached) setRoutines(cached);
+      void fetchRoutines();
+    });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStartWorkout = useCallback(
     (routineId?: string) => {
