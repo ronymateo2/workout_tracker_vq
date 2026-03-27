@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,7 +24,6 @@ import {
   getActiveSession,
   getEntriesWithDetailsForSession,
   getRoutineWithExercises,
-  getPreviousSetsForExercises,
 } from "./data";
 import { useData } from "./data-context";
 
@@ -47,10 +45,7 @@ function loadFromStorage(): PersistedWorkout | null {
   }
 }
 
-function saveToStorage(
-  session: WorkoutSession,
-  entries: WorkoutEntryWithDetails[],
-) {
+function saveToStorage(session: WorkoutSession, entries: WorkoutEntryWithDetails[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ session, entries }));
 }
 
@@ -63,7 +58,6 @@ function clearStorage() {
 interface WorkoutContextValue {
   activeSession: WorkoutSession | null;
   entries: WorkoutEntryWithDetails[];
-  previousSets: Record<string, WorkoutSet[]>;
   loading: boolean;
   startWorkout: (routineId?: string) => Promise<void>;
   addExercise: (exercise: Exercise) => Promise<void>;
@@ -79,7 +73,6 @@ interface WorkoutContextValue {
 const WorkoutContext = createContext<WorkoutContextValue>({
   activeSession: null,
   entries: [],
-  previousSets: {},
   loading: true,
   startWorkout: async () => {},
   addExercise: async () => {},
@@ -106,15 +99,9 @@ export function WorkoutProvider({
   children: ReactNode;
 }) {
   const { supabase } = useData();
-  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(
-    null,
-  );
+  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
-  const [previousSets, setPreviousSets] = useState<
-    Record<string, WorkoutSet[]>
-  >({});
   const [loading, setLoading] = useState(true);
-  const prevSetsCache = useRef<Record<string, WorkoutSet[]>>({});
 
   // Helper: update state + localStorage atomically
   const commit = useCallback(
@@ -132,7 +119,6 @@ export function WorkoutProvider({
       // 1. Check localStorage
       const persisted = loadFromStorage();
       if (persisted) {
-        // Verify the session still exists in DB (not discarded from another tab)
         const dbSession = await getActiveSession(supabase, userId);
         if (dbSession && dbSession.id === persisted.session.id) {
           setActiveSession(persisted.session);
@@ -143,14 +129,10 @@ export function WorkoutProvider({
         clearStorage();
       }
 
-      // 2. Fall back to DB (backward-compat with old data written directly)
+      // 2. Fall back to DB
       const session = await getActiveSession(supabase, userId);
       if (session) {
-        debugger;
-        const detailed = await getEntriesWithDetailsForSession(
-          supabase,
-          session.id,
-        );
+        const detailed = await getEntriesWithDetailsForSession(supabase, session.id);
         setActiveSession(session);
         setEntries(detailed);
         saveToStorage(session, detailed);
@@ -158,24 +140,7 @@ export function WorkoutProvider({
 
       setLoading(false);
     })();
-  }, [userId, supabase]);
-
-  // ── Load previous sets whenever entries change ────────────────────────────
-  useEffect(() => {
-    if (!supabase || entries.length === 0) return;
-    const exerciseIds = [...new Set(entries.map((e) => e.exercise_id))];
-    const uncached = exerciseIds.filter((id) => !(id in prevSetsCache.current));
-    if (uncached.length === 0) return;
-    void (async () => {
-      const fetched = await getPreviousSetsForExercises(
-        supabase!,
-        userId,
-        uncached,
-      );
-      prevSetsCache.current = { ...prevSetsCache.current, ...fetched };
-      setPreviousSets({ ...prevSetsCache.current });
-    })();
-  }, [entries, supabase, userId]);
+  }, [userId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── startWorkout ──────────────────────────────────────────────────────────
   const startWorkout = useCallback(
@@ -189,7 +154,6 @@ export function WorkoutProvider({
         finished_at: null,
         notes: null,
       };
-      // Only the session record goes to DB immediately (so we can detect it on refresh)
       await startWorkoutSession(supabase, session);
       setActiveSession(session);
 
@@ -200,21 +164,18 @@ export function WorkoutProvider({
           for (const re of routine.exercises) {
             const entryId = crypto.randomUUID();
             const isBands = re.exercise.exercise_type === "bands";
-            const sets: WorkoutSet[] = Array.from(
-              { length: re.default_sets },
-              (_, i) => ({
-                id: crypto.randomUUID(),
-                entry_id: entryId,
-                position: i,
-                weight_kg: null,
-                reps: null,
-                duration_seconds: null,
-                distance_m: null,
-                band_color: isBands ? "yellow" : null,
-                band_resistance: null,
-                completed: false,
-              }),
-            );
+            const sets: WorkoutSet[] = Array.from({ length: re.default_sets }, (_, i) => ({
+              id: crypto.randomUUID(),
+              entry_id: entryId,
+              position: i,
+              weight_kg: null,
+              reps: null,
+              duration_seconds: null,
+              distance_m: null,
+              band_color: isBands ? "yellow" : null,
+              band_resistance: null,
+              completed: false,
+            }));
             detailed.push({
               id: entryId,
               session_id: session.id,
@@ -268,10 +229,7 @@ export function WorkoutProvider({
   const removeExercise = useCallback(
     async (entryId: string) => {
       if (!activeSession) return;
-      commit(
-        activeSession,
-        entries.filter((e) => e.id !== entryId),
-      );
+      commit(activeSession, entries.filter((e) => e.id !== entryId));
     },
     [activeSession, entries, commit],
   );
@@ -363,7 +321,6 @@ export function WorkoutProvider({
   // ── discardWorkout ────────────────────────────────────────────────────────
   const discardWorkout = useCallback(async () => {
     if (!activeSession || !supabase) return;
-    // Session is in DB but entries/sets are not yet, so just delete the session
     await deleteWorkoutSession(supabase, activeSession.id);
     clearStorage();
     setActiveSession(null);
@@ -375,7 +332,6 @@ export function WorkoutProvider({
       value={{
         activeSession,
         entries,
-        previousSets,
         loading,
         startWorkout,
         addExercise,

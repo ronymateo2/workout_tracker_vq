@@ -327,46 +327,37 @@ export async function getRecentWorkouts(
   userId: string,
   limit = 20,
 ): Promise<WorkoutSessionWithEntries[]> {
-  const { data: sessions } = await supabase
+  const { data } = await supabase
     .from("workout_sessions")
-    .select("*")
+    .select(
+      `
+      *,
+      entries:workout_entries(
+        *,
+        exercise:exercise_library(*),
+        sets:workout_sets(*)
+      )
+    `,
+    )
     .eq("user_id", userId)
     .not("finished_at", "is", null)
     .order("started_at", { ascending: false })
+    .order("position", { referencedTable: "workout_entries" })
+    .order("position", { referencedTable: "workout_entries.workout_sets" })
     .limit(limit);
 
-  const result: WorkoutSessionWithEntries[] = [];
-  for (const session of sessions ?? []) {
-    const { data: entries } = await supabase
-      .from("workout_entries")
-      .select("*")
-      .eq("session_id", session.id)
-      .order("position");
-
-    const entriesWithDetails = await Promise.all(
-      (entries ?? []).map(async (entry) => {
-        const { data: exercise } = await supabase
-          .from("exercise_library")
-          .select("*")
-          .eq("id", entry.exercise_id)
-          .maybeSingle();
-        const { data: sets } = await supabase
-          .from("workout_sets")
-          .select("*")
-          .eq("entry_id", entry.id)
-          .order("position");
-        return {
-          ...entry,
-          exercise: exercise!,
-          sets: (sets ?? []) as WorkoutSet[],
-        };
-      }),
-    );
-
-    result.push({ ...session, entries: entriesWithDetails });
-  }
-
-  return result;
+  return (data ?? []).map((session) => ({
+    ...session,
+    entries: ((session.entries ?? []) as WorkoutEntryWithDetails[])
+      .filter((e) => e.exercise)
+      .map((e) => ({
+        ...e,
+        sets: ((e.sets ?? []) as WorkoutSet[]).sort(
+          (a, b) => a.position - b.position,
+        ),
+      }))
+      .sort((a, b) => a.position - b.position),
+  })) as WorkoutSessionWithEntries[];
 }
 
 export async function getActiveSession(
@@ -419,65 +410,3 @@ export async function getTrainingDays(
   return days;
 }
 
-// ─── Previous Sets (for ANTERIOR column) ─────────────────────────────────────
-
-export async function getPreviousSetsForExercises(
-  supabase: SupabaseClient,
-  userId: string,
-  exerciseIds: string[],
-): Promise<Record<string, WorkoutSet[]>> {
-  if (exerciseIds.length === 0) return {};
-
-  // 1. Get recent finished session IDs ordered by recency
-  const { data: sessions } = await supabase
-    .from("workout_sessions")
-    .select("id")
-    .eq("user_id", userId)
-    .not("finished_at", "is", null)
-    .order("started_at", { ascending: false })
-    .limit(50);
-
-  if (!sessions?.length) return {};
-
-  const sessionIds = sessions.map((s) => s.id as string);
-  const sessionOrder = new Map(sessionIds.map((id, i) => [id, i]));
-
-  // 2. Get all matching entries (no embedded joins)
-  const { data: entries } = await supabase
-    .from("workout_entries")
-    .select("id, exercise_id, session_id")
-    .in("session_id", sessionIds)
-    .in("exercise_id", exerciseIds);
-
-  if (!entries?.length) return {};
-
-  // Pick the most recent entry per exercise
-  const bestEntryPerExercise = new Map<string, string>(); // exercise_id -> entry_id
-  const sorted = [...entries].sort(
-    (a, b) =>
-      (sessionOrder.get(a.session_id) ?? 999) -
-      (sessionOrder.get(b.session_id) ?? 999),
-  );
-  for (const entry of sorted) {
-    if (!bestEntryPerExercise.has(entry.exercise_id)) {
-      bestEntryPerExercise.set(entry.exercise_id, entry.id);
-    }
-  }
-
-  // 3. Get sets for those entries
-  const bestEntryIds = [...bestEntryPerExercise.values()];
-  const { data: sets } = await supabase
-    .from("workout_sets")
-    .select("*")
-    .in("entry_id", bestEntryIds)
-    .order("position");
-
-  // Assemble result
-  const result: Record<string, WorkoutSet[]> = {};
-  for (const [exerciseId, entryId] of bestEntryPerExercise) {
-    result[exerciseId] = ((sets ?? []) as WorkoutSet[]).filter(
-      (s) => s.entry_id === entryId,
-    );
-  }
-  return result;
-}

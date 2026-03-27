@@ -22,30 +22,6 @@ const BAND_COLORS = Object.entries(BAND_COLOR_HEX) as [BandColor, string][];
 const DELETE_WIDTH = 72;
 const SPRING = { type: "spring" as const, stiffness: 500, damping: 42 };
 
-// ─── Previous performance formatter ──────────────────────────────────────────
-
-function formatPrevious(set: WorkoutSet | undefined, type: ExerciseType): string {
-  if (!set) return "—";
-  switch (type) {
-    case "weight_reps":
-      return set.weight_kg && set.reps ? `${set.weight_kg}kg × ${set.reps}` : "—";
-    case "bodyweight_reps":
-      return set.reps ? `${set.reps} reps` : "—";
-    case "duration":
-      return set.duration_seconds ? `${set.duration_seconds}s` : "—";
-    case "duration_weight":
-      return set.weight_kg && set.duration_seconds ? `${set.weight_kg}kg × ${set.duration_seconds}s` : "—";
-    case "distance_duration":
-      return set.distance_m && set.duration_seconds ? `${set.distance_m}m × ${set.duration_seconds}s` : "—";
-    case "weight_distance":
-      return set.weight_kg && set.distance_m ? `${set.weight_kg}kg × ${set.distance_m}m` : "—";
-    case "bands":
-      return set.band_color && set.reps ? `${BAND_COLOR_LABELS[set.band_color]} × ${set.reps}` : "—";
-    default:
-      return "—";
-  }
-}
-
 // ─── Swipeable set row ────────────────────────────────────────────────────────
 
 function SwipeableSetRow({
@@ -142,10 +118,9 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ entry }: ExerciseCardProps) {
-  const { addSet, updateSet, toggleSet, removeSet, removeExercise, previousSets } = useWorkout();
+  const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkout();
   const [showMenu, setShowMenu] = useState(false);
   const type = entry.exercise.exercise_type;
-  const prevSets = previousSets[entry.exercise_id] ?? [];
 
   const handleInputChange = (
     setId: string,
@@ -202,7 +177,6 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
           style={{ gridTemplateColumns: columns.template }}
         >
           <span className="text-center">Set</span>
-          <span>Anterior</span>
           {type === "bands" ? (
             <>
               <span className="text-center">Banda</span>
@@ -237,11 +211,6 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                 {idx + 1}
               </span>
             </div>
-
-            {/* Previous performance */}
-            <span className="truncate text-[12px] text-[var(--label-secondary)]">
-              {formatPrevious(prevSets[idx], type)}
-            </span>
 
             {/* Dynamic inputs */}
             {type === "bands" ? (
@@ -356,7 +325,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
   switch (type) {
     case "weight_reps":
       return {
-        template: "28px 1fr 56px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },
@@ -364,17 +333,17 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bodyweight_reps":
       return {
-        template: "28px 1fr 64px 32px",
+        template: "28px 1fr 36px",
         fields: [{ key: "reps", label: "Reps", placeholder: "0" }],
       };
     case "duration":
       return {
-        template: "28px 1fr 64px 32px",
+        template: "28px 1fr 36px",
         fields: [{ key: "duration_seconds", label: "Seg", placeholder: "0" }],
       };
     case "duration_weight":
       return {
-        template: "28px 1fr 56px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -382,7 +351,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "distance_duration":
       return {
-        template: "28px 1fr 56px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [
           { key: "distance_m", label: "M", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -390,7 +359,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "weight_distance":
       return {
-        template: "28px 1fr 56px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "distance_m", label: "M", placeholder: "0" },
@@ -398,12 +367,12 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bands":
       return {
-        template: "28px 1fr 110px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [],
       };
     default:
       return {
-        template: "28px 1fr 56px 56px 32px",
+        template: "28px 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },

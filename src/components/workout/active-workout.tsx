@@ -31,7 +31,7 @@ export function ActiveWorkout() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[var(--background)]">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[var(--background)]">
       {/* Header */}
       <div className="safe-top shrink-0 border-b border-[var(--line)] px-4 pb-3">
         <div className="mb-2 flex items-center justify-between">
@@ -41,7 +41,7 @@ export function ActiveWorkout() {
             className="flex items-center gap-1 text-[15px] text-[var(--label-secondary)] tap-highlight-transparent"
           >
             <ChevronDown className="size-5" />
-            Log Workout
+            Entrenando
           </button>
           <Button
             variant="primary"

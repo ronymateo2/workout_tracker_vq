@@ -18,7 +18,7 @@ const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
 
 export function TabBar({ activeTab, onTabChange }: TabBarProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 ios-surface safe-bottom border-t border-[var(--line)]">
+    <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 ios-surface safe-bottom border-t border-[var(--line)]">
       <div className="flex items-center justify-around px-2 pt-2 pb-1">
         {tabs.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id;

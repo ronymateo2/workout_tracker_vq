@@ -17,7 +17,7 @@ export function HomeTab() {
 
   const loadWorkouts = useCallback(async () => {
     if (!user || !supabase) return;
-    const recent = await getRecentWorkouts(supabase, user.id, 20);
+    const recent = await getRecentWorkouts(supabase, user.id, 5);
     setWorkouts(recent);
     setLoading(false);
   }, [user, supabase]);
