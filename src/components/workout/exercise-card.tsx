@@ -137,10 +137,17 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
   };
 
   const REPS_TYPES: ExerciseType[] = ["weight_reps", "bodyweight_reps", "bands"];
+  const DURATION_TYPES: ExerciseType[] = ["duration", "duration_weight", "distance_duration"];
   const requiresReps = REPS_TYPES.includes(type);
+  const requiresDuration = DURATION_TYPES.includes(type);
 
   const handleToggle = (set: WorkoutSet) => {
     if (!set.completed && requiresReps && !(set.reps && set.reps > 0)) {
+      setShakingId(set.id);
+      setTimeout(() => setShakingId(null), 500);
+      return;
+    }
+    if (!set.completed && requiresDuration && !(set.duration_seconds && set.duration_seconds > 0)) {
       setShakingId(set.id);
       setTimeout(() => setShakingId(null), 500);
       return;
@@ -341,6 +348,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                       key={f.key}
                       totalSeconds={set.duration_seconds}
                       completed={set.completed}
+                      shaking={shakingId === set.id}
                       onChange={(seconds) => void updateSet(set.id, { duration_seconds: seconds })}
                     />
                   );
@@ -384,7 +392,7 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
                     "flex size-7 items-center justify-center rounded-full border-2 transition-colors",
                     set.completed
                       ? "border-[var(--success)] bg-[var(--success)]"
-                      : requiresReps && !(set.reps && set.reps > 0)
+                      : (requiresReps && !(set.reps && set.reps > 0)) || (requiresDuration && !(set.duration_seconds && set.duration_seconds > 0))
                         ? "border-[var(--separator)] bg-transparent opacity-30"
                         : "border-[var(--separator)] bg-transparent",
                   )}
@@ -423,10 +431,12 @@ export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
 function DurationInput({
   totalSeconds,
   completed,
+  shaking,
   onChange,
 }: {
   totalSeconds: number | null;
   completed: boolean;
+  shaking?: boolean;
   onChange: (seconds: number | null) => void;
 }) {
   const total = totalSeconds ?? 0;
@@ -444,14 +454,20 @@ function DurationInput({
   };
 
   const inputCls = clsx(
-    "w-full rounded-[8px] py-2 text-center text-[16px] font-semibold outline-none transition-colors",
+    "w-full rounded-[8px] py-2 text-center text-[16px] font-semibold outline-none transition-[box-shadow] duration-300",
     completed
       ? "bg-transparent text-[var(--label-secondary)]"
-      : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
+      : shaking
+        ? "bg-[var(--fill-quaternary)] text-[var(--foreground)] shadow-[inset_0_0_0_2px_var(--danger)]"
+        : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
   );
 
   return (
-    <div className="flex items-center gap-0.5">
+    <motion.div
+      className="flex items-center gap-0.5"
+      animate={shaking ? { x: [0, -7, 7, -5, 5, -3, 3, 0] } : { x: 0 }}
+      transition={{ duration: 0.42 }}
+    >
       <input
         type="number"
         inputMode="numeric"
@@ -483,7 +499,7 @@ function DurationInput({
         onChange={(e) => update("s", e.target.value)}
         className={inputCls}
       />
-    </div>
+    </motion.div>
   );
 }
 
