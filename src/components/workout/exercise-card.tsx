@@ -115,9 +115,10 @@ function SwipeableSetRow({
 
 interface ExerciseCardProps {
   entry: WorkoutEntryWithDetails;
+  prevSets?: WorkoutSet[];
 }
 
-export function ExerciseCard({ entry }: ExerciseCardProps) {
+export function ExerciseCard({ entry, prevSets }: ExerciseCardProps) {
   const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkout();
   const [showMenu, setShowMenu] = useState(false);
   const [shakingId, setShakingId] = useState<string | null>(null);
@@ -191,6 +192,7 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
           style={{ gridTemplateColumns: columns.template }}
         >
           <span className="text-center">Set</span>
+          <span className="text-center">Prev</span>
           {type === "bands" ? (
             <>
               <span className="text-center">Banda</span>
@@ -225,6 +227,31 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
               )}>
                 {idx + 1}
               </span>
+            </div>
+
+            {/* Prev set cell */}
+            <div className="flex items-center justify-center px-1">
+              {type === "bands" ? (
+                prevSets?.[idx] ? (
+                  <div className="flex items-center gap-1">
+                    {prevSets[idx].band_color && (
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: BAND_COLOR_HEX[prevSets[idx].band_color!] }}
+                      />
+                    )}
+                    <span className="text-[11px] text-[var(--label-secondary)]">
+                      {prevSets[idx].reps != null ? `× ${prevSets[idx].reps}` : "—"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-[var(--label-secondary)]">—</span>
+                )
+              ) : (
+                <span className="text-[11px] text-[var(--label-secondary)]">
+                  {prevSets?.[idx] ? formatPrevCell(prevSets[idx], type) : "—"}
+                </span>
+              )}
             </div>
 
             {/* Dynamic inputs */}
@@ -355,6 +382,36 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
   );
 }
 
+// ─── Previous set cell ────────────────────────────────────────────────────────
+
+function formatPrevCell(set: WorkoutSet, type: ExerciseType): string {
+  switch (type) {
+    case "weight_reps":
+      if (set.weight_kg != null && set.reps != null) return `${set.weight_kg}kg × ${set.reps}`;
+      if (set.weight_kg != null) return `${set.weight_kg}kg`;
+      if (set.reps != null) return `${set.reps} reps`;
+      return "—";
+    case "bodyweight_reps":
+      return set.reps != null ? `${set.reps} reps` : "—";
+    case "duration":
+      return set.duration_seconds != null ? `${set.duration_seconds}s` : "—";
+    case "duration_weight":
+      if (set.weight_kg != null && set.duration_seconds != null) return `${set.weight_kg}kg × ${set.duration_seconds}s`;
+      return "—";
+    case "distance_duration":
+      if (set.distance_m != null && set.duration_seconds != null) return `${set.distance_m}m × ${set.duration_seconds}s`;
+      return "—";
+    case "weight_distance":
+      if (set.weight_kg != null && set.distance_m != null) return `${set.weight_kg}kg × ${set.distance_m}m`;
+      return "—";
+    case "bands":
+      if (set.reps != null) return `${set.band_resistance != null ? `${set.band_resistance}kg × ` : ""}${set.reps} reps`;
+      return "—";
+    default:
+      return "—";
+  }
+}
+
 // ─── Column config by exercise type ──────────────────────────────────────────
 
 interface ColumnField {
@@ -372,7 +429,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
   switch (type) {
     case "weight_reps":
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },
@@ -380,17 +437,17 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bodyweight_reps":
       return {
-        template: "28px 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 36px",
         fields: [{ key: "reps", label: "Reps", placeholder: "0" }],
       };
     case "duration":
       return {
-        template: "28px 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 36px",
         fields: [{ key: "duration_seconds", label: "Seg", placeholder: "0" }],
       };
     case "duration_weight":
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -398,7 +455,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "distance_duration":
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 36px",
         fields: [
           { key: "distance_m", label: "M", placeholder: "0" },
           { key: "duration_seconds", label: "Seg", placeholder: "0" },
@@ -406,7 +463,7 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "weight_distance":
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "distance_m", label: "M", placeholder: "0" },
@@ -414,12 +471,12 @@ function getColumns(type: ExerciseType): ColumnConfig {
       };
     case "bands":
       return {
-        template: "28px 1fr 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 1fr 36px",
         fields: [],
       };
     default:
       return {
-        template: "28px 1fr 1fr 36px",
+        template: "28px minmax(0,1fr) 1fr 1fr 36px",
         fields: [
           { key: "weight_kg", label: "KG", placeholder: "0" },
           { key: "reps", label: "Reps", placeholder: "0" },

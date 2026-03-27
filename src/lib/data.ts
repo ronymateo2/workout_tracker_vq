@@ -360,6 +360,48 @@ export async function getRecentWorkouts(
   })) as WorkoutSessionWithEntries[];
 }
 
+// For each exercise, fetch the most recent finished session that included it
+// and return its sets. One query per exercise (run in parallel) with limit(1)
+// on the session level — guarantees exactly 1 result per exercise regardless
+// of history size, routine, muscle group, or sessionless workouts.
+export async function getPrevSetsForExercises(
+  supabase: SupabaseClient,
+  userId: string,
+  exerciseIds: string[],
+  currentSessionId: string,
+): Promise<Record<string, WorkoutSet[]>> {
+  if (exerciseIds.length === 0) return {};
+
+  const results = await Promise.all(
+    exerciseIds.map(async (exerciseId) => {
+      const { data } = await supabase
+        .from("workout_sessions")
+        .select(
+          `entries:workout_entries!inner(
+             exercise_id,
+             sets:workout_sets(*)
+           )`,
+        )
+        .eq("user_id", userId)
+        .not("finished_at", "is", null)
+        .neq("id", currentSessionId)
+        .eq("workout_entries.exercise_id", exerciseId)
+        .order("started_at", { ascending: false })
+        .order("position", { referencedTable: "workout_entries.workout_sets" })
+        .limit(1);
+
+      const sets = (data?.[0]?.entries?.[0]?.sets ?? []) as WorkoutSet[];
+      return { exerciseId, sets };
+    }),
+  );
+
+  const map: Record<string, WorkoutSet[]> = {};
+  for (const { exerciseId, sets } of results) {
+    if (sets.length > 0) map[exerciseId] = sets;
+  }
+  return map;
+}
+
 export async function getActiveSession(
   supabase: SupabaseClient,
   userId: string,
@@ -409,4 +451,3 @@ export async function getTrainingDays(
   }
   return days;
 }
-

@@ -302,13 +302,15 @@ export function WorkoutProvider({
     [activeSession, entries, commit],
   );
 
-  // ── finishWorkout: flush everything to DB ─────────────────────────────────
+  // ── finishWorkout: flush only completed sets to DB ───────────────────────
   const finishWorkout = useCallback(async () => {
     if (!activeSession || !supabase) return;
     for (const entry of entries) {
-      const { exercise: _exercise, sets, ...entryRecord } = entry;
+      const completedSets = entry.sets.filter((s) => s.completed);
+      if (completedSets.length === 0) continue;
+      const { exercise: _exercise, sets: _sets, ...entryRecord } = entry;
       await addWorkoutEntry(supabase, entryRecord as WorkoutEntry);
-      for (const set of sets) {
+      for (const set of completedSets) {
         await addWorkoutSet(supabase, set);
       }
     }
