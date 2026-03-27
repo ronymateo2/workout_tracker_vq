@@ -120,6 +120,7 @@ interface ExerciseCardProps {
 export function ExerciseCard({ entry }: ExerciseCardProps) {
   const { addSet, updateSet, toggleSet, removeSet, removeExercise } = useWorkout();
   const [showMenu, setShowMenu] = useState(false);
+  const [shakingId, setShakingId] = useState<string | null>(null);
   const type = entry.exercise.exercise_type;
 
   const handleInputChange = (
@@ -130,6 +131,18 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
     if (value === "") { void updateSet(setId, { [field]: null }); return; }
     const num = Math.max(0, Number(value));
     void updateSet(setId, { [field]: num });
+  };
+
+  const REPS_TYPES: ExerciseType[] = ["weight_reps", "bodyweight_reps", "bands"];
+  const requiresReps = REPS_TYPES.includes(type);
+
+  const handleToggle = (set: WorkoutSet) => {
+    if (!set.completed && requiresReps && !(set.reps && set.reps > 0)) {
+      setShakingId(set.id);
+      setTimeout(() => setShakingId(null), 500);
+      return;
+    }
+    void toggleSet(set.id);
   };
 
   const columns = getColumns(type);
@@ -255,39 +268,53 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
                       : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
                   )}
                 />
-                <input
+                <motion.input
                   type="number"
                   inputMode="numeric"
                   min="0"
                   placeholder="0"
                   value={set.reps ?? ""}
                   onChange={(e) => handleInputChange(set.id, "reps", e.target.value)}
+                  animate={shakingId === set.id
+                    ? { x: [0, -7, 7, -5, 5, -3, 3, 0] }
+                    : { x: 0 }}
+                  transition={{ duration: 0.42 }}
                   className={clsx(
-                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none",
+                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold text-[var(--foreground)] outline-none transition-[box-shadow] duration-300",
                     set.completed
                       ? "bg-transparent text-[var(--label-secondary)]"
-                      : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
+                      : shakingId === set.id
+                        ? "bg-[var(--fill-quaternary)] shadow-[inset_0_0_0_2px_var(--danger)]"
+                        : "bg-[var(--fill-quaternary)] focus:bg-[var(--fill-tertiary)]",
                   )}
                 />
               </>
             ) : (
-              columns.fields.map((f) => (
-                <input
-                  key={f.key}
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  placeholder={f.placeholder}
-                  value={(set[f.key as keyof WorkoutSet] as number | null) ?? ""}
-                  onChange={(e) => handleInputChange(set.id, f.key as keyof WorkoutSet, e.target.value)}
-                  className={clsx(
-                    "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold outline-none",
-                    set.completed
-                      ? "bg-transparent text-[var(--label-secondary)]"
-                      : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
-                  )}
-                />
-              ))
+              columns.fields.map((f) => {
+                const isReps = f.key === "reps";
+                const shaking = isReps && shakingId === set.id;
+                return (
+                  <motion.input
+                    key={f.key}
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    placeholder={f.placeholder}
+                    value={(set[f.key as keyof WorkoutSet] as number | null) ?? ""}
+                    onChange={(e) => handleInputChange(set.id, f.key as keyof WorkoutSet, e.target.value)}
+                    animate={shaking ? { x: [0, -7, 7, -5, 5, -3, 3, 0] } : { x: 0 }}
+                    transition={{ duration: 0.42 }}
+                    className={clsx(
+                      "w-full rounded-[8px] px-1 py-1.5 text-center text-[14px] font-semibold outline-none transition-[box-shadow] duration-300",
+                      set.completed
+                        ? "bg-transparent text-[var(--label-secondary)]"
+                        : shaking
+                          ? "bg-[var(--fill-quaternary)] text-[var(--foreground)] shadow-[inset_0_0_0_2px_var(--danger)]"
+                          : "bg-[var(--fill-quaternary)] text-[var(--foreground)] focus:bg-[var(--fill-tertiary)]",
+                    )}
+                  />
+                );
+              })
             )}
 
             {/* Complete toggle */}
@@ -295,12 +322,14 @@ export function ExerciseCard({ entry }: ExerciseCardProps) {
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => void toggleSet(set.id)}
+                onClick={() => handleToggle(set)}
                 className={clsx(
                   "flex size-7 items-center justify-center rounded-full border-2 tap-highlight-transparent transition-colors",
                   set.completed
                     ? "border-[var(--success)] bg-[var(--success)]"
-                    : "border-[var(--separator)] bg-transparent",
+                    : requiresReps && !(set.reps && set.reps > 0)
+                      ? "border-[var(--separator)] bg-transparent opacity-30"
+                      : "border-[var(--separator)] bg-transparent",
                 )}
               >
                 <Check
