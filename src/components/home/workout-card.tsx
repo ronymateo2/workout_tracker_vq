@@ -6,16 +6,18 @@ import type { WorkoutSessionWithEntries } from "@/types/models";
 
 interface WorkoutCardProps {
   workout: WorkoutSessionWithEntries;
+  routineMap?: Record<string, string>;
 }
 
-export function WorkoutCard({ workout }: WorkoutCardProps) {
+export function WorkoutCard({ workout, routineMap }: WorkoutCardProps) {
   const timeAgo = formatDistanceToNow(new Date(workout.started_at), {
     addSuffix: true,
     locale: es,
   }).toUpperCase();
 
   const durationMs = workout.finished_at
-    ? new Date(workout.finished_at).getTime() - new Date(workout.started_at).getTime()
+    ? new Date(workout.finished_at).getTime() -
+      new Date(workout.started_at).getTime()
     : 0;
   const durationMin = Math.round(durationMs / 60000);
 
@@ -32,6 +34,11 @@ export function WorkoutCard({ workout }: WorkoutCardProps) {
     }
   }
 
+  const title =
+    (workout.routine_id && routineMap?.[workout.routine_id]) ||
+    workout.notes ||
+    "Entreno libre";
+
   return (
     <div className="overflow-hidden rounded-[20px] bg-[var(--background-secondary)]">
       {/* Header */}
@@ -40,7 +47,7 @@ export function WorkoutCard({ workout }: WorkoutCardProps) {
           {timeAgo}
         </p>
         <p className="text-[19px] font-bold text-[var(--foreground)]">
-          {workout.notes || "Entreno"}
+          {title}
         </p>
       </div>
 
@@ -57,33 +64,38 @@ export function WorkoutCard({ workout }: WorkoutCardProps) {
           <p className="text-[28px] font-bold leading-none text-[var(--foreground)]">
             {totalSets}
           </p>
-          <p className="mt-1 text-[12px] text-[var(--label-secondary)]">series</p>
+          <p className="mt-1 text-[12px] text-[var(--label-secondary)]">
+            series
+          </p>
         </div>
-        {totalVolume > 0 && (
-          <>
-            <div className="w-px bg-[var(--line)]" />
-            <div className="flex-1 px-4 py-3">
-              <p className="text-[28px] font-bold leading-none text-[var(--foreground)]">
-                {Math.round(totalVolume)}
-              </p>
-              <p className="mt-1 text-[12px] text-[var(--label-secondary)]">kg</p>
-            </div>
-          </>
-        )}
+        <div className="w-px bg-[var(--line)]" />
+        <div className="flex-1 px-4 py-3">
+          <p className="text-[28px] font-bold leading-none text-[var(--foreground)]">
+            {Math.round(totalVolume > 0 ? totalVolume : 0)}
+          </p>
+          <p className="mt-1 text-[12px] text-[var(--label-secondary)]">kg</p>
+        </div>
       </div>
 
-      {/* Exercise chips */}
+      {/* Exercise list */}
       {workout.entries.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-t border-[var(--line)] px-4 py-3">
-          {workout.entries.map((entry) => {
+        <div className="border-t border-[var(--line)]">
+          {workout.entries.map((entry, i) => {
             const completed = entry.sets.filter((s) => s.completed).length;
             return (
-              <span
+              <div
                 key={entry.id}
-                className="rounded-full bg-[var(--fill-tertiary)] px-3 py-1 text-[13px] font-medium text-[var(--foreground)]"
+                className={`flex items-center justify-between px-4 py-2.5 ${
+                  i > 0 ? "border-t border-[var(--line)]" : ""
+                }`}
               >
-                {completed > 0 ? `${completed}×` : ""} {entry.exercise.name}
-              </span>
+                <span className="text-[15px] text-[var(--foreground)]">
+                  {entry.exercise.name}
+                </span>
+                <span className="text-[14px] text-[var(--label-secondary)]">
+                  {completed} {completed === 1 ? "serie" : "series"}
+                </span>
+              </div>
             );
           })}
         </div>

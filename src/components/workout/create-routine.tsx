@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Dumbbell, X, Minus, GripVertical } from "lucide-react";
+import { Plus, X, Minus, GripVertical } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
@@ -15,8 +15,6 @@ import type {
 } from "@/types/models";
 import { BAND_COLOR_LABELS } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ExercisePicker } from "./exercise-picker";
 
 interface CreateRoutineProps {
@@ -186,51 +184,41 @@ function ExerciseCard({
 }) {
   const controls = useDragControls();
   const type = item.exercise.exercise_type;
-  const hasSecondary = needsReps(type) || needsDuration(type) || needsBand(type);
 
   return (
     <Reorder.Item
       value={item}
       dragListener={false}
       dragControls={controls}
-      className="rounded-[14px] bg-[var(--background-tertiary)]"
+      className="overflow-hidden rounded-[16px] bg-[var(--background-secondary)]"
     >
       {/* ── Name row ── */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+      <div className="flex items-center gap-3 px-4 py-3.5">
         <button
           type="button"
           onPointerDown={(e) => controls.start(e)}
-          className="touch-none shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[var(--label-tertiary)]"
+          className="touch-none shrink-0 cursor-grab active:cursor-grabbing text-[var(--label-tertiary)]"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-[18px]" />
         </button>
-
-        <p className="min-w-0 flex-1 truncate text-[15px] font-medium">
+        <span className="min-w-0 flex-1 truncate text-[16px] font-semibold text-[var(--foreground)]">
           {item.exercise.name}
-        </p>
-
+        </span>
         <button
           type="button"
           onClick={onRemove}
-          className="shrink-0 p-0.5 text-[var(--danger)] tap-highlight-transparent"
+          className="shrink-0 flex size-6 items-center justify-center rounded-full bg-[var(--fill-secondary)] tap-highlight-transparent active:opacity-60"
         >
-          <X className="size-4" />
+          <X className="size-3 text-[var(--label-secondary)]" />
         </button>
       </div>
 
       {/* ── Controls row ── */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pb-3 pl-9">
-        {/* Sets — always shown */}
-        <Counter
-          value={item.defaultSets}
-          label="series"
-          onDelta={onUpdateSets}
-          min={1}
-        />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--line)] px-4 py-3 pl-[52px]">
+        <Counter value={item.defaultSets} label="series" onDelta={onUpdateSets} min={1} />
 
-        {/* Reps */}
         {needsReps(type) && (
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1.5">
             <input
               type="number"
               inputMode="numeric"
@@ -243,21 +231,14 @@ function ExerciseCard({
               }}
               className="w-12 rounded-[8px] bg-[var(--fill-secondary)] px-1 py-1.5 text-center text-[16px] font-bold tabular-nums text-[var(--foreground)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <span className="text-[12px] font-medium text-[var(--label-secondary)]">
-              reps
-            </span>
+            <span className="text-[12px] font-medium text-[var(--label-secondary)]">reps</span>
           </div>
         )}
 
-        {/* Duration h/m/s */}
         {needsDuration(type) && (
-          <DurationPicker
-            value={item.defaultDurationSeconds ?? 30}
-            onChange={onUpdateDuration}
-          />
+          <DurationPicker value={item.defaultDurationSeconds ?? 30} onChange={onUpdateDuration} />
         )}
 
-        {/* Band color + resistance */}
         {needsBand(type) && (
           <>
             <div className="flex items-center gap-1.5">
@@ -270,14 +251,8 @@ function ExerciseCard({
                   className="size-5 rounded-full transition-transform tap-highlight-transparent"
                   style={{
                     backgroundColor: bc.hex,
-                    transform:
-                      item.defaultBandColor === bc.value
-                        ? "scale(1.35)"
-                        : "scale(1)",
-                    outline:
-                      item.defaultBandColor === bc.value
-                        ? `2px solid ${bc.hex}`
-                        : "none",
+                    transform: item.defaultBandColor === bc.value ? "scale(1.35)" : "scale(1)",
+                    outline: item.defaultBandColor === bc.value ? `2px solid ${bc.hex}` : "none",
                     outlineOffset: "2px",
                   }}
                 />
@@ -293,9 +268,7 @@ function ExerciseCard({
                 onChange={(e) => onUpdateBandResistance(Number(e.target.value))}
                 className="w-12 rounded-[8px] bg-[var(--fill-secondary)] px-2 py-1 text-center text-[13px] font-semibold tabular-nums text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
               />
-              <span className="text-[12px] text-[var(--label-secondary)]">
-                kg
-              </span>
+              <span className="text-[12px] text-[var(--label-secondary)]">kg</span>
             </div>
           </>
         )}
@@ -412,32 +385,29 @@ export function CreateRoutine({
       <Sheet
         open={open}
         onClose={onClose}
-        title={isEditing ? "Editar Rutina" : "Crear Rutina"}
+        title={isEditing ? "Editar Rutina" : "Nueva Rutina"}
       >
-        <div className="px-4 py-4">
+        <div className="flex flex-col gap-5 px-4 py-4 pb-8">
           {/* Name input */}
-          <div className="mb-4">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nombre de la rutina"
-              className="w-full border-b border-[var(--line)] bg-transparent pb-2 text-[20px] font-bold text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
-            />
-          </div>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nombre de la rutina"
+            className="border-b border-[var(--line)] bg-transparent pb-2.5 text-[22px] font-bold text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
+          />
 
           {/* Exercise list */}
           {exercises.length === 0 ? (
-            <EmptyState
-              icon={<Dumbbell className="size-10" />}
-              message="Agrega ejercicios a tu rutina."
-            />
+            <p className="py-4 text-center text-[15px] text-[var(--label-secondary)]">
+              Agrega ejercicios a tu rutina
+            </p>
           ) : (
             <Reorder.Group
               axis="y"
               values={exercises}
               onReorder={setExercises}
-              className="mb-4 space-y-2"
+              className="space-y-2"
             >
               {exercises.map((item) => (
                 <ExerciseCard
@@ -445,48 +415,39 @@ export function CreateRoutine({
                   item={item}
                   onRemove={() => removeExercise(item.uid)}
                   onUpdateSets={(delta) =>
-                    updateItem(item.uid, {
-                      defaultSets: Math.max(1, item.defaultSets + delta),
-                    })
+                    updateItem(item.uid, { defaultSets: Math.max(1, item.defaultSets + delta) })
                   }
-                  onUpdateReps={(val) =>
-                    updateItem(item.uid, { defaultReps: val })
-                  }
+                  onUpdateReps={(val) => updateItem(item.uid, { defaultReps: val })}
                   onUpdateDuration={(val) =>
                     updateItem(item.uid, { defaultDurationSeconds: Math.max(0, val) })
                   }
-                  onUpdateBandColor={(color) =>
-                    updateItem(item.uid, { defaultBandColor: color })
-                  }
-                  onUpdateBandResistance={(val) =>
-                    updateItem(item.uid, { defaultBandResistance: val })
-                  }
+                  onUpdateBandColor={(color) => updateItem(item.uid, { defaultBandColor: color })}
+                  onUpdateBandResistance={(val) => updateItem(item.uid, { defaultBandResistance: val })}
                 />
               ))}
             </Reorder.Group>
           )}
 
-          {/* Add exercise */}
-          <Button
-            variant="primary"
-            size="lg"
+          {/* Add exercise — outlined ghost */}
+          <button
+            type="button"
             onClick={() => setShowPicker(true)}
-            className="mb-3"
+            className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-[var(--line)] py-3.5 text-[16px] font-medium text-[var(--accent)] tap-highlight-transparent active:opacity-60"
           >
             <Plus className="size-5" />
             Agregar Ejercicio
-          </Button>
+          </button>
 
-          {/* Save */}
+          {/* Save — primary CTA */}
           {(isEditing || exercises.length > 0) && (
-            <Button
-              variant="secondary"
-              size="lg"
+            <button
+              type="button"
               onClick={() => void handleSave()}
               disabled={!name.trim()}
+              className="flex w-full items-center justify-center rounded-[14px] bg-[var(--accent)] py-4 text-[17px] font-semibold text-white min-h-[50px] tap-highlight-transparent active:opacity-80 disabled:opacity-40"
             >
               {isEditing ? "Guardar Cambios" : "Guardar Rutina"}
-            </Button>
+            </button>
           )}
         </div>
       </Sheet>

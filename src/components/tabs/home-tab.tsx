@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
 import { useWorkoutSession } from "@/lib/workout-context";
 import { getRecentWorkouts } from "@/lib/data";
-import { getRecentWorkoutsCache, setRecentWorkoutsCache } from "@/lib/db";
+import { getRecentWorkoutsCache, setRecentWorkoutsCache, getRoutinesCache } from "@/lib/db";
 import type { WorkoutSessionWithEntries } from "@/types/models";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WorkoutCard } from "@/components/home/workout-card";
@@ -23,9 +23,23 @@ export function HomeTab() {
   const { supabase } = useData();
   const { lastFinishedAt } = useWorkoutSession();
   const [workouts, setWorkouts] = useState<WorkoutSessionWithEntries[]>([]);
+  const [routineMap, setRoutineMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const firstName = user?.fullName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "";
+  const displayName = user?.fullName ?? user?.email ?? "";
+  const initials = displayName.charAt(0).toUpperCase();
+
+  // Load routine name map from cache
+  useEffect(() => {
+    if (!user) return;
+    getRoutinesCache(user.id).then((cached) => {
+      if (cached) {
+        const map: Record<string, string> = {};
+        for (const r of cached) map[r.id] = r.name;
+        setRoutineMap(map);
+      }
+    });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchFromSupabase = useCallback(async () => {
     if (!user || !supabase) return;
@@ -55,12 +69,26 @@ export function HomeTab() {
 
   return (
     <div className="safe-top px-4">
-      {/* Greeting */}
-      <div className="pt-2 pb-6">
-        <p className="text-[15px] text-[var(--label-secondary)]">{getGreeting()}</p>
-        <h1 className="text-[34px] font-bold tracking-tight leading-tight">
-          {firstName}
-        </h1>
+      {/* Header with user info */}
+      <div className="flex items-center gap-3 pt-4 pb-6">
+        {user?.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.avatarUrl}
+            alt={displayName}
+            className="size-12 rounded-full shrink-0"
+          />
+        ) : (
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[18px] font-bold text-white">
+            {initials}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-[14px] text-[var(--label-secondary)]">{getGreeting()}</p>
+          <h1 className="truncate text-[22px] font-bold tracking-tight leading-tight">
+            {displayName}
+          </h1>
+        </div>
       </div>
 
       {loading ? (
@@ -79,7 +107,11 @@ export function HomeTab() {
           </p>
           <div className="flex flex-col gap-3 pb-4">
             {workouts.map((workout) => (
-              <WorkoutCard key={workout.id} workout={workout} />
+              <WorkoutCard
+                key={workout.id}
+                workout={workout}
+                routineMap={routineMap}
+              />
             ))}
           </div>
         </>

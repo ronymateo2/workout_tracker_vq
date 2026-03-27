@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Play, Trash2, Pencil, Copy } from "lucide-react";
+import { Play, Trash2, Pencil, Copy, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
 import {
@@ -12,7 +12,6 @@ import {
 import type { RoutineExercise, RoutineWithExercises } from "@/types/models";
 import { BAND_COLOR_LABELS } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 
 interface RoutineDetailProps {
@@ -47,7 +46,7 @@ export function RoutineDetail({
   }, [routineId, supabase]);
 
   useEffect(() => {
-    if (open) load();
+    if (open) load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [open, load]);
 
   const handleDelete = async () => {
@@ -90,64 +89,90 @@ export function RoutineDetail({
   return (
     <>
       <Sheet open={open} onClose={onClose} title={routine.name}>
-        <div className="px-4 py-4">
+        <div className="flex flex-col gap-6 px-4 py-4 pb-8">
           {/* Exercise list */}
-          <div className="mb-6 space-y-1">
-            {routine.exercises.map((re) => {
-              const details: string[] = [`${re.default_sets} series`];
-              if (re.default_reps) details.push(`${re.default_reps} reps`);
-              if (re.default_duration_seconds)
-                details.push(`${re.default_duration_seconds} seg.`);
-              if (re.default_band_color)
-                details.push(BAND_COLOR_LABELS[re.default_band_color]);
-              if (re.default_band_resistance)
-                details.push(`${re.default_band_resistance} kg`);
-              return (
-                <div
-                  key={re.id}
-                  className="flex items-center justify-between rounded-[12px] bg-[var(--background-tertiary)] px-3 py-3"
-                >
-                  <span className="text-[15px]">{re.exercise.name}</span>
-                  <span className="text-[13px] text-[var(--label-secondary)]">
-                    {details.join(" · ")}
-                  </span>
-                </div>
-              );
-            })}
+          {routine.exercises.length > 0 && (
+            <div>
+              <p className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-widest text-[var(--label-secondary)]">
+                Ejercicios
+              </p>
+              <div className="ios-list">
+                {routine.exercises.map((re) => {
+                  const details: string[] = [`${re.default_sets} series`];
+                  if (re.default_reps) details.push(`${re.default_reps} reps`);
+                  if (re.default_duration_seconds)
+                    details.push(`${re.default_duration_seconds} seg.`);
+                  if (re.default_band_color)
+                    details.push(BAND_COLOR_LABELS[re.default_band_color]);
+                  if (re.default_band_resistance)
+                    details.push(`${re.default_band_resistance} kg`);
+                  return (
+                    <div key={re.id} className="ios-list-item">
+                      <div className="flex items-center justify-between px-4 py-3.5">
+                        <span className="text-[16px] text-[var(--foreground)]">
+                          {re.exercise.name}
+                        </span>
+                        <span className="text-[14px] text-[var(--label-secondary)]">
+                          {details.join(" · ")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Primary CTA */}
+          <button
+            type="button"
+            onClick={onStartWorkout}
+            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--accent)] py-4 text-[17px] font-semibold text-white min-h-[50px] tap-highlight-transparent active:opacity-80"
+          >
+            <Play className="size-5 translate-x-px fill-white" />
+            Empezar Entreno
+          </button>
+
+          {/* Secondary actions — iOS Settings-style rows */}
+          <div className="ios-list">
+            <div className="ios-list-item">
+              <button
+                type="button"
+                onClick={() => onEdit(routine)}
+                className="flex w-full items-center gap-3 px-4 py-3.5 tap-highlight-transparent active:opacity-60"
+              >
+                <Pencil className="size-[18px] shrink-0 text-[var(--accent)]" />
+                <span className="flex-1 text-left text-[16px] text-[var(--foreground)]">
+                  Editar Rutina
+                </span>
+                <ChevronRight className="size-4 text-[var(--label-tertiary)]" />
+              </button>
+            </div>
+            <div className="ios-list-item">
+              <button
+                type="button"
+                onClick={() => void handleDuplicate()}
+                disabled={duplicating}
+                className="flex w-full items-center gap-3 px-4 py-3.5 tap-highlight-transparent active:opacity-60 disabled:opacity-40"
+              >
+                <Copy className="size-[18px] shrink-0 text-[var(--accent)]" />
+                <span className="flex-1 text-left text-[16px] text-[var(--foreground)]">
+                  {duplicating ? "Duplicando…" : "Duplicar Rutina"}
+                </span>
+                <ChevronRight className="size-4 text-[var(--label-tertiary)]" />
+              </button>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="space-y-2">
-            <Button variant="primary" size="lg" onClick={onStartWorkout}>
-              <Play className="size-5" />
-              Empezar Entreno
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => onEdit(routine)}
-            >
-              <Pencil className="size-5" />
-              Editar Rutina
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void handleDuplicate()}
-              disabled={duplicating}
-            >
-              <Copy className="size-5" />
-              {duplicating ? "Duplicando…" : "Duplicar Rutina"}
-            </Button>
-            <Button
-              variant="danger"
-              size="lg"
-              onClick={() => setShowConfirm(true)}
-            >
-              <Trash2 className="size-5" />
-              Eliminar Rutina
-            </Button>
-          </div>
+          {/* Destructive action — subtle text button */}
+          <button
+            type="button"
+            onClick={() => setShowConfirm(true)}
+            className="flex w-full items-center justify-center gap-1.5 py-2 text-[15px] font-medium text-[#FF453A] tap-highlight-transparent active:opacity-60"
+          >
+            <Trash2 className="size-4" />
+            Eliminar Rutina
+          </button>
         </div>
       </Sheet>
 
