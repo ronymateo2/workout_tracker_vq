@@ -42,6 +42,8 @@ export interface Exercise {
   exercise_type: ExerciseType;
   unilateral: boolean;
   muscle_groups: MuscleGroup[];
+  description: string | null;
+  video_url: string | null;
   created_at: string;
 }
 

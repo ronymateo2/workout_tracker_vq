@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import clsx from "clsx";
+import { Link2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useData } from "@/lib/data-context";
 import { createExercise } from "@/lib/data";
@@ -56,6 +57,8 @@ export function CreateExercise({
   const [exerciseType, setExerciseType] = useState<ExerciseType>("weight_reps");
   const [unilateral, setUnilateral] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<MuscleGroup[]>([]);
+  const [description, setDescription] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
 
   // Reset form when opened
   const handleOpen = () => {
@@ -63,6 +66,8 @@ export function CreateExercise({
     setExerciseType("weight_reps");
     setUnilateral(false);
     setSelectedMuscles([]);
+    setDescription("");
+    setVideoUrl("");
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,6 +91,8 @@ export function CreateExercise({
       exercise_type: exerciseType,
       unilateral,
       muscle_groups: selectedMuscles.length > 0 ? selectedMuscles : ["full_body"],
+      description: description.trim() || null,
+      video_url: videoUrl.trim() || null,
       created_at: new Date().toISOString(),
     };
 
@@ -96,71 +103,96 @@ export function CreateExercise({
 
   return (
     <Sheet open={open} onClose={onClose} title="Crear Ejercicio">
-      <div className="space-y-5 px-4 py-4">
-        {/* Name */}
-        <div>
-          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
-            Nombre
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nombre del ejercicio"
-            className="ios-input"
+      <div className="space-y-6 px-4 py-5">
 
-          />
-        </div>
-
-        {/* Exercise Type */}
+        {/* ── Sección: Info básica ── */}
         <div>
-          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
-            Tipo de Ejercicio
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {EXERCISE_TYPES.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setExerciseType(type)}
-                className={clsx(
-                  "rounded-[12px] px-4 py-2.5 text-[14px] font-medium tap-highlight-transparent transition",
-                  exerciseType === type
-                    ? "bg-[var(--accent)] text-white"
-                    : "bg-[var(--fill-tertiary)] text-[var(--foreground)]",
-                )}
-              >
-                {EXERCISE_TYPE_LABELS[type]}
-              </button>
-            ))}
+          <p className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-[0.07em] text-[var(--label-secondary)]">
+            Info básica
+          </p>
+          <div className="ios-list">
+            {/* Nombre */}
+            <div className="ios-list-item px-4 py-3">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nombre del ejercicio"
+                className="w-full bg-transparent text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
+              />
+            </div>
+            {/* Descripción */}
+            <div className="ios-list-item px-4 py-3">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Descripción, forma y técnica…"
+                rows={3}
+                className="w-full resize-none bg-transparent text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
+              />
+            </div>
+            {/* Video */}
+            <div className="ios-list-item flex items-center gap-3 px-4 py-3">
+              <Link2 className="size-4 shrink-0 text-[var(--label-tertiary)]" />
+              <input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="Video (opcional)"
+                className="flex-1 bg-transparent text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--label-tertiary)]"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Unilateral */}
-        <div className="flex items-center justify-between rounded-[14px] bg-[var(--background-tertiary)] px-4 py-3">
-          <span className="text-[15px]">Unilateral</span>
-          <button
-            type="button"
-            onClick={() => setUnilateral(!unilateral)}
-            className={clsx(
-              "relative h-[31px] w-[51px] rounded-full transition-colors",
-              unilateral ? "bg-[var(--success)]" : "bg-[var(--fill)]",
-            )}
-          >
-            <span
-              className={clsx(
-                "absolute top-[2px] left-[2px] size-[27px] rounded-full bg-white shadow transition-transform",
-                unilateral && "translate-x-[20px]",
-              )}
-            />
-          </button>
+        {/* ── Sección: Configuración ── */}
+        <div>
+          <p className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-[0.07em] text-[var(--label-secondary)]">
+            Configuración
+          </p>
+          <div className="ios-list">
+            {/* Tipo de ejercicio */}
+            <div className="ios-list-item flex items-center justify-between px-4 py-3">
+              <span className="text-[16px]">Tipo de ejercicio</span>
+              <select
+                value={exerciseType}
+                onChange={(e) => setExerciseType(e.target.value as ExerciseType)}
+                className="max-w-[52%] bg-transparent text-right text-[16px] text-[var(--accent)] outline-none"
+              >
+                {EXERCISE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {EXERCISE_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Unilateral */}
+            <div className="ios-list-item flex items-center justify-between px-4 py-3">
+              <span className="text-[16px]">Unilateral</span>
+              <button
+                type="button"
+                onClick={() => setUnilateral(!unilateral)}
+                className={clsx(
+                  "relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors",
+                  unilateral ? "bg-[var(--success)]" : "bg-[var(--fill)]",
+                )}
+              >
+                <span
+                  className={clsx(
+                    "absolute top-[2px] left-[2px] size-[27px] rounded-full bg-white shadow transition-transform",
+                    unilateral && "translate-x-[20px]",
+                  )}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Muscle Groups */}
+        {/* ── Sección: Grupos musculares ── */}
         <div>
-          <label className="mb-1.5 block text-[14px] font-medium text-[var(--label-secondary)]">
-            Grupos Musculares
-          </label>
+          <p className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-[0.07em] text-[var(--label-secondary)]">
+            Grupos musculares
+          </p>
           <div className="flex flex-wrap gap-2">
             {MUSCLE_GROUPS.map((muscle) => (
               <button
@@ -168,7 +200,7 @@ export function CreateExercise({
                 type="button"
                 onClick={() => toggleMuscle(muscle)}
                 className={clsx(
-                  "rounded-[12px] px-4 py-2.5 text-[14px] font-medium tap-highlight-transparent transition",
+                  "rounded-full px-4 py-2 text-[14px] font-medium tap-highlight-transparent transition",
                   selectedMuscles.includes(muscle)
                     ? "bg-[var(--accent)] text-white"
                     : "bg-[var(--fill-tertiary)] text-[var(--foreground)]",
@@ -180,7 +212,7 @@ export function CreateExercise({
           </div>
         </div>
 
-        {/* Save */}
+        {/* ── Guardar ── */}
         <Button
           variant="primary"
           size="lg"
