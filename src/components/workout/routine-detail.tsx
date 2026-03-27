@@ -10,6 +10,7 @@ import {
   createRoutine,
 } from "@/lib/data";
 import type { RoutineExercise, RoutineWithExercises } from "@/types/models";
+import { BAND_COLOR_LABELS } from "@/types/models";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { AlertDialog } from "@/components/ui/alert-dialog";
@@ -73,6 +74,10 @@ export function RoutineDetail({
       exercise_id: re.exercise_id,
       position: i,
       default_sets: re.default_sets,
+      default_reps: re.default_reps,
+      default_duration_seconds: re.default_duration_seconds,
+      default_band_color: re.default_band_color,
+      default_band_resistance: re.default_band_resistance,
     }));
     await createRoutine(supabase, newRoutine, newExercises);
     setDuplicating(false);
@@ -88,17 +93,27 @@ export function RoutineDetail({
         <div className="px-4 py-4">
           {/* Exercise list */}
           <div className="mb-6 space-y-1">
-            {routine.exercises.map((re) => (
-              <div
-                key={re.id}
-                className="flex items-center justify-between rounded-[12px] bg-[var(--background-tertiary)] px-3 py-3"
-              >
-                <span className="text-[15px]">{re.exercise.name}</span>
-                <span className="text-[13px] text-[var(--label-secondary)]">
-                  {re.default_sets} series
-                </span>
-              </div>
-            ))}
+            {routine.exercises.map((re) => {
+              const details: string[] = [`${re.default_sets} series`];
+              if (re.default_reps) details.push(`${re.default_reps} reps`);
+              if (re.default_duration_seconds)
+                details.push(`${re.default_duration_seconds} seg.`);
+              if (re.default_band_color)
+                details.push(BAND_COLOR_LABELS[re.default_band_color]);
+              if (re.default_band_resistance)
+                details.push(`${re.default_band_resistance} kg`);
+              return (
+                <div
+                  key={re.id}
+                  className="flex items-center justify-between rounded-[12px] bg-[var(--background-tertiary)] px-3 py-3"
+                >
+                  <span className="text-[15px]">{re.exercise.name}</span>
+                  <span className="text-[13px] text-[var(--label-secondary)]">
+                    {details.join(" · ")}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Actions */}

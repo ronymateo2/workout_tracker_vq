@@ -59,6 +59,10 @@ export interface RoutineExercise {
   exercise_id: string;
   position: number;
   default_sets: number;
+  default_reps: number | null;
+  default_duration_seconds: number | null;
+  default_band_color: BandColor | null;
+  default_band_resistance: number | null;
 }
 
 export interface WorkoutSession {
