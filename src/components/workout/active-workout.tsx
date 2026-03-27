@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { useWorkout } from "@/lib/workout-context";
-import { useData } from "@/lib/data-context";
-import { useAuth } from "@/lib/auth-client";
-import { getPrevSetsForExercises } from "@/lib/data";
-import type { WorkoutSet } from "@/types/models";
 import { Button } from "@/components/ui/button";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { WorkoutTimer } from "./workout-timer";
@@ -18,33 +14,12 @@ interface ActiveWorkoutProps {
 }
 
 export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
-  const { activeSession, entries, finishWorkout, discardWorkout } =
+  const { activeSession, entries, prevSetsMap, finishWorkout, discardWorkout } =
     useWorkout();
-  const { supabase } = useData();
-  const { user } = useAuth();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showNoSetsAlert, setShowNoSetsAlert] = useState(false);
   const [showIncompleteAlert, setShowIncompleteAlert] = useState(false);
-  const [prevSetsMap, setPrevSetsMap] = useState<Record<string, WorkoutSet[]>>(
-    {},
-  );
-
-  // Stable key: only re-fetch when the exercise list changes, not on every set update
-  const exerciseIdsKey = entries.map((e) => e.exercise_id).join(",");
-
-  useEffect(() => {
-    if (!supabase || !user || !activeSession || !exerciseIdsKey) return;
-    const exerciseIds = exerciseIdsKey.split(",");
-    getPrevSetsForExercises(
-      supabase,
-      user.id,
-      exerciseIds,
-      activeSession.id,
-    ).then(setPrevSetsMap);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, user, activeSession?.id, exerciseIdsKey]);
 
   if (!activeSession) return null;
 

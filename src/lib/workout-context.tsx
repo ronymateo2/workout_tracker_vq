@@ -26,6 +26,7 @@ import {
   getActiveSession,
   getEntriesWithDetailsForSession,
   getRoutineWithExercises,
+  getPrevSetsForExercises,
 } from "./data";
 import { useData } from "./data-context";
 
@@ -81,6 +82,7 @@ export function useWorkoutSession() {
 
 interface WorkoutEntriesContextValue {
   entries: WorkoutEntryWithDetails[];
+  prevSetsMap: Record<string, WorkoutSet[]>;
   addExercise: (exercise: Exercise) => Promise<void>;
   removeExercise: (entryId: string) => Promise<void>;
   addSet: (entryId: string) => Promise<void>;
@@ -91,6 +93,7 @@ interface WorkoutEntriesContextValue {
 
 const WorkoutEntriesContext = createContext<WorkoutEntriesContextValue>({
   entries: [],
+  prevSetsMap: {},
   addExercise: async () => {},
   removeExercise: async () => {},
   addSet: async () => {},
@@ -124,6 +127,8 @@ export function WorkoutProvider({
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prevSetsMap, setPrevSetsMap] = useState<Record<string, WorkoutSet[]>>({});
+  const fetchedPrevSetIds = useRef<Set<string>>(new Set());
 
   // Ref so session-level actions (finish/discard) can read entries
   // without adding it to their dependency arrays.
@@ -170,6 +175,19 @@ export function WorkoutProvider({
       setLoading(false);
     })();
   }, [userId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch prev sets for new exercises only ────────────────────────────────
+  useEffect(() => {
+    if (!supabase || !activeSession || entries.length === 0) return;
+    const newIds = entries
+      .map((e) => e.exercise_id)
+      .filter((id) => !fetchedPrevSetIds.current.has(id));
+    if (newIds.length === 0) return;
+    newIds.forEach((id) => fetchedPrevSetIds.current.add(id));
+    getPrevSetsForExercises(supabase, userId, newIds, activeSession.id).then(
+      (result) => setPrevSetsMap((prev) => ({ ...prev, ...result })),
+    );
+  }, [supabase, userId, activeSession, entries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── startWorkout ──────────────────────────────────────────────────────────
   const startWorkout = useCallback(
@@ -239,8 +257,10 @@ export function WorkoutProvider({
     await finishWorkoutSession(supabase, activeSession.id);
     clearStorage();
     entriesRef.current = [];
+    fetchedPrevSetIds.current = new Set();
     setActiveSession(null);
     setEntries([]);
+    setPrevSetsMap({});
   }, [activeSession, supabase]);
 
   // ── discardWorkout ────────────────────────────────────────────────────────
@@ -249,8 +269,10 @@ export function WorkoutProvider({
     await deleteWorkoutSession(supabase, activeSession.id);
     clearStorage();
     entriesRef.current = [];
+    fetchedPrevSetIds.current = new Set();
     setActiveSession(null);
     setEntries([]);
+    setPrevSetsMap({});
   }, [activeSession, supabase]);
 
   // ── addExercise ───────────────────────────────────────────────────────────
@@ -369,6 +391,7 @@ export function WorkoutProvider({
   const entriesValue = useMemo(
     () => ({
       entries,
+      prevSetsMap,
       addExercise,
       removeExercise,
       addSet,
@@ -376,7 +399,7 @@ export function WorkoutProvider({
       removeSet,
       toggleSet,
     }),
-    [entries, addExercise, removeExercise, addSet, updateSetFn, removeSet, toggleSet],
+    [entries, prevSetsMap, addExercise, removeExercise, addSet, updateSetFn, removeSet, toggleSet],
   );
 
   return (
