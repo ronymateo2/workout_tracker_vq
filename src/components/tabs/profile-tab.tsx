@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useData } from "@/lib/data-context";
 import { getWorkoutCount, getRecentWorkouts } from "@/lib/data";
-import { syncWorkoutsToSqlite, runSQLiteTestQuery, debugSqliteData } from "@/lib/sqlite";
+import { syncWorkoutsToSqlite, runSQLiteTestQuery } from "@/lib/sqlite";
 import { TrainingCalendar } from "@/components/profile/training-calendar";
 import { useTheme } from "@/lib/theme-context";
 
@@ -37,7 +37,7 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
       // 3. Run a test aggregation query
       const totalSets = await runSQLiteTestQuery();
       setDbTotalSets(totalSets);
-      
+
     } catch (e) {
       console.error("SQLite initialization error:", e);
     }
