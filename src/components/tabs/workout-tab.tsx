@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Play, Dumbbell, MoreHorizontal } from "lucide-react";
+import { Plus, Play, Dumbbell, MoreHorizontal, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useWorkoutSession } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
@@ -34,6 +34,7 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
   const [pendingRoutineId, setPendingRoutineId] = useState<
     string | null | undefined
   >(undefined);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchRoutines = useCallback(async () => {
     if (!user || !supabase) return;
@@ -46,11 +47,23 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
 
   useEffect(() => {
     if (!user) return;
+    let isMounted = true;
+
     getRoutinesCache(user.id).then((cached) => {
-      if (cached) setRoutines(cached);
-      void fetchRoutines();
+      if (!isMounted) return;
+      if (cached && cached.length > 0) {
+        setRoutines(cached);
+        setIsLoading(false);
+      }
+      void fetchRoutines().finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
     });
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, fetchRoutines]);
 
   const handleStartWorkout = useCallback(
     (routineId?: string) => {
@@ -95,7 +108,11 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
       </button>
 
       {/* Routine list */}
-      {routines.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <LoaderCircle className="size-8 animate-spin text-[var(--muted)]" />
+        </div>
+      ) : routines.length === 0 ? (
         <EmptyState
           icon={<Dumbbell className="size-10" />}
           message="Crea tu primera rutina para empezar a entrenar."
