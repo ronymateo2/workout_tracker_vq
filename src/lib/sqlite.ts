@@ -180,3 +180,35 @@ export async function runSQLiteTestQuery() {
 
   return result[0]?.total_sets ?? 0;
 }
+
+/**
+ * Prints a sample of the data to the browser console for debugging.
+ */
+export async function debugSqliteData() {
+  const { db } = await getSqliteDb();
+  
+  const tables = ["workout_sessions", "workout_entries", "workout_sets", "exercise_library"];
+  
+  console.group("SQLite WASM In-Memory Database");
+  for (const table of tables) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: any[] = [];
+    try {
+      db.exec({
+        sql: `SELECT * FROM ${table} LIMIT 5;`,
+        rowMode: "object",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        callback: (row: any) => rows.push(row)
+      });
+      console.log(`Tabla: ${table} (hasta 5 registros)`);
+      if (rows.length > 0) {
+        console.table(rows);
+      } else {
+        console.log("(vacía)");
+      }
+    } catch (e) {
+      console.error(`Error leyendo ${table}`, e);
+    }
+  }
+  console.groupEnd();
+}
