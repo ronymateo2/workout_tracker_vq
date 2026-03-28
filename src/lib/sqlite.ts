@@ -70,29 +70,3 @@ export async function runSQLiteTestQuery() {
   return (rows as any[])[0]?.total_sets ?? 0;
 }
 
-/**
- * Prints a sample of the data to the browser console for debugging.
- */
-export async function debugSqliteData() {
-  await getWorker();
-  
-  const tables = ["workout_sessions", "workout_entries", "workout_sets", "exercise_library"];
-  
-  console.group("SQLite WASM Web Worker Database");
-  for (const table of tables) {
-    try {
-      const rows = await sendMsg("EXEC_QUERY", {
-        sql: `SELECT * FROM ${table} LIMIT 5;`
-      });
-      console.log(`Tabla: ${table} (hasta 5 registros)`);
-      if (rows && rows.length > 0) {
-        console.table(rows);
-      } else {
-        console.log("(vacía)");
-      }
-    } catch (e) {
-      console.error(`Error leyendo ${table}`, e);
-    }
-  }
-  console.groupEnd();
-}

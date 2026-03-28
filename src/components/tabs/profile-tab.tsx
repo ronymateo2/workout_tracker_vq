@@ -38,8 +38,6 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
       const totalSets = await runSQLiteTestQuery();
       setDbTotalSets(totalSets);
       
-      // 4. Muestra una porción de las tablas en la consola para depuración
-      await debugSqliteData();
     } catch (e) {
       console.error("SQLite initialization error:", e);
     }
