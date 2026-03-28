@@ -60,22 +60,22 @@ interface WorkoutSessionContextValue {
   activeSession: WorkoutSession | null;
   loading: boolean;
   isSaving: boolean;
-  lastFinishedAt: string | null;
+  syncState: 'idle' | 'pending_sync' | 'synced';
   startWorkout: (routineId?: string) => Promise<void>;
   finishWorkout: () => Promise<void>;
   discardWorkout: () => Promise<void>;
-  clearLastFinishedAt: () => void;
+  setSyncState: (state: 'idle' | 'pending_sync' | 'synced') => void;
 }
 
 const WorkoutSessionContext = createContext<WorkoutSessionContextValue>({
   activeSession: null,
   loading: true,
   isSaving: false,
-  lastFinishedAt: null,
+  syncState: 'idle',
   startWorkout: async () => {},
   finishWorkout: async () => {},
   discardWorkout: async () => {},
-  clearLastFinishedAt: () => {},
+  setSyncState: () => {},
 });
 
 export function useWorkoutSession() {
@@ -132,7 +132,7 @@ export function WorkoutProvider({
   const [entries, setEntries] = useState<WorkoutEntryWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastFinishedAt, setLastFinishedAt] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<'idle' | 'pending_sync' | 'synced'>('idle');
   const [prevSetsMap, setPrevSetsMap] = useState<Record<string, WorkoutSet[]>>({});
   const fetchedPrevSetIds = useRef<Set<string>>(new Set());
 
@@ -276,7 +276,7 @@ export function WorkoutProvider({
     clearStorage();
     entriesRef.current = [];
     fetchedPrevSetIds.current = new Set();
-    setLastFinishedAt(new Date().toISOString());
+    setSyncState('pending_sync');
     setActiveSession(null);
     setEntries([]);
     setPrevSetsMap({});
@@ -402,11 +402,9 @@ export function WorkoutProvider({
     [activeSession, commit],
   );
 
-  const clearLastFinishedAt = useCallback(() => setLastFinishedAt(null), []);
-
   const sessionValue = useMemo(
-    () => ({ activeSession, loading, isSaving, lastFinishedAt, startWorkout, finishWorkout, discardWorkout, clearLastFinishedAt }),
-    [activeSession, loading, isSaving, lastFinishedAt, startWorkout, finishWorkout, discardWorkout, clearLastFinishedAt],
+    () => ({ activeSession, loading, isSaving, syncState, startWorkout, finishWorkout, discardWorkout, setSyncState }),
+    [activeSession, loading, isSaving, syncState, startWorkout, finishWorkout, discardWorkout, setSyncState],
   );
 
   const entriesValue = useMemo(
