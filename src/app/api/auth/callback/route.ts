@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const user = await exchangeGoogleCode(code, redirectUri);
     const token = await createSessionToken(user);
     await setSessionCookie(token);
-    return NextResponse.redirect(origin);
+    return NextResponse.redirect(`${origin}/?login=success`);
   } catch (err) {
     console.error("Auth callback error:", err);
     return NextResponse.redirect(origin);

@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-client";
 import { DataProvider } from "@/lib/data-context";
 import { WorkoutProvider, useWorkoutSession } from "@/lib/workout-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { clearAllCaches } from "@/lib/db";
 import { TabBar, type TabId } from "./tab-bar";
 import { HomeTab } from "./tabs/home-tab";
 import { WorkoutTab } from "./tabs/workout-tab";
@@ -157,6 +158,27 @@ function AuthenticatedApp({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const { activeSession, loading, discardWorkout } = useWorkoutSession();
   const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("login") === "success") {
+        // Limpiamos los caches tras login para tener datos actualizados
+        clearAllCaches().catch(console.error);
+        localStorage.clear();
+        sessionStorage.clear();
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            return Promise.all(
+              keys.filter((k) => k.startsWith("rurana-")).map((k) => caches.delete(k)),
+            );
+          }).catch(console.error);
+        }
+        url.searchParams.delete("login");
+        window.history.replaceState({}, document.title, url.toString());
+      }
+    }
+  }, []);
 
   const handleResumeWorkout = useCallback(() => {
     setShowActiveWorkout(true);

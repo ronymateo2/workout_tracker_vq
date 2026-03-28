@@ -62,3 +62,13 @@ export function setRecentWorkoutsCache(
 ) {
   return set(`recent_workouts:${userId}`, data);
 }
+
+export async function clearAllCaches(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  try {
+    const db = await getDB();
+    await db.clear("cache");
+  } catch {
+    // IDB unavailable
+  }
+}
