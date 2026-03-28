@@ -7,9 +7,10 @@ import type { WorkoutSessionWithEntries } from "@/types/models";
 interface WorkoutCardProps {
   workout: WorkoutSessionWithEntries;
   routineMap?: Record<string, string>;
+  isLatest?: boolean;
 }
 
-export function WorkoutCard({ workout, routineMap }: WorkoutCardProps) {
+export function WorkoutCard({ workout, routineMap, isLatest = false }: WorkoutCardProps) {
   const timeAgo = formatDistanceToNow(new Date(workout.started_at), {
     addSuffix: true,
     locale: es,
@@ -40,12 +41,27 @@ export function WorkoutCard({ workout, routineMap }: WorkoutCardProps) {
     "Entreno libre";
 
   return (
-    <div className="overflow-hidden rounded-[20px] bg-[var(--background-secondary)]">
+    <div 
+      className={`overflow-hidden rounded-[20px] bg-[var(--background-secondary)] transition-all ${
+        isLatest 
+          ? "ring-2 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--background)] shadow-sm" 
+          : "shadow-xs"
+      }`}
+    >
       {/* Header */}
       <div className="px-4 pt-4 pb-3">
-        <p className="mb-0.5 text-[12px] font-semibold tracking-widest text-[var(--label-secondary)]">
-          {timeAgo}
-        </p>
+        <div className="flex items-center justify-between mb-0.5">
+          <p className={`text-[12px] font-semibold tracking-widest ${
+            isLatest ? "text-[var(--accent)]" : "text-[var(--label-secondary)]"
+          }`}>
+            {timeAgo}
+          </p>
+          {isLatest && (
+            <span className="flex h-5 items-center rounded-full bg-[var(--accent-soft)] px-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">
+              Último
+            </span>
+          )}
+        </div>
         <p className="text-[19px] font-bold text-[var(--foreground)]">
           {title}
         </p>

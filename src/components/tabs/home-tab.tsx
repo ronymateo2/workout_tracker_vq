@@ -120,11 +120,12 @@ export function HomeTab() {
             Recientes
           </p>
           <div className="flex flex-col gap-3 pb-4">
-            {workouts.map((workout) => (
+            {workouts.map((workout, i) => (
               <WorkoutCard
                 key={workout.id}
                 workout={workout}
                 routineMap={routineMap}
+                isLatest={i === 0}
               />
             ))}
           </div>
