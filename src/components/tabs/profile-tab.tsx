@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useData } from "@/lib/data-context";
-import { getWorkoutCount } from "@/lib/data";
+import { getWorkoutCount, getRecentWorkouts } from "@/lib/data";
+import { syncWorkoutsToSqlite, runSQLiteTestQuery } from "@/lib/sqlite";
 import { TrainingCalendar } from "@/components/profile/training-calendar";
 import { useTheme } from "@/lib/theme-context";
 
@@ -21,11 +22,24 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
   const { supabase } = useData();
   const { theme, toggleTheme } = useTheme();
   const [workoutCount, setWorkoutCount] = useState(0);
+  const [dbTotalSets, setDbTotalSets] = useState<number | null>(null);
 
   const loadStats = useCallback(async () => {
     if (!supabase) return;
     const count = await getWorkoutCount(supabase, user.id);
     setWorkoutCount(count);
+
+    try {
+      // 1. Fetch recent workouts for analysis (limit 100 for now)
+      const workouts = await getRecentWorkouts(supabase, user.id, 100);
+      // 2. Sync to local SQLite WASM instance
+      await syncWorkoutsToSqlite(workouts);
+      // 3. Run a test aggregation query
+      const totalSets = await runSQLiteTestQuery();
+      setDbTotalSets(totalSets);
+    } catch (e) {
+      console.error("SQLite initialization error:", e);
+    }
   }, [user.id, supabase]);
 
   useEffect(() => {
@@ -60,13 +74,26 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
       </div>
 
       {/* Stats */}
-      <div className="mb-6 rounded-[16px] bg-[var(--background-secondary)] p-4">
-        <p className="text-[14px] text-[var(--label-secondary)]">
-          Total Entrenamientos
-        </p>
-        <p className="text-[28px] font-bold text-[var(--accent)]">
-          {workoutCount}
-        </p>
+      <div className="mb-6 rounded-[16px] bg-[var(--background-secondary)] p-4 space-y-4">
+        <div>
+          <p className="text-[14px] text-[var(--label-secondary)]">
+            Total Entrenamientos
+          </p>
+          <p className="text-[28px] font-bold text-[var(--accent)]">
+            {workoutCount}
+          </p>
+        </div>
+        
+        {dbTotalSets !== null && (
+          <div>
+            <p className="text-[14px] text-[var(--label-secondary)]">
+              Total Series (SQLite WASM)
+            </p>
+            <p className="text-[28px] font-bold text-[var(--accent)]">
+              {dbTotalSets}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Calendar */}
