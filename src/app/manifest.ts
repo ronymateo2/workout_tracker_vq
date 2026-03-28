@@ -15,17 +15,17 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["health", "productivity", "sports"],
     icons: [
       {
-        src: "/icon?size=192",
+        src: "/icon-192x192.png",
         sizes: "192x192",
         type: "image/png",
       },
       {
-        src: "/icon?size=512",
+        src: "/icon-512x512.png",
         sizes: "512x512",
         type: "image/png",
       },
       {
-        src: "/apple-icon",
+        src: "/apple-icon.png",
         sizes: "180x180",
         type: "image/png",
       },
