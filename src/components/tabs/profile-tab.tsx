@@ -22,25 +22,11 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
   const { supabase } = useData();
   const { theme, toggleTheme } = useTheme();
   const [workoutCount, setWorkoutCount] = useState(0);
-  const [dbTotalSets, setDbTotalSets] = useState<number | null>(null);
 
   const loadStats = useCallback(async () => {
     if (!supabase) return;
     const count = await getWorkoutCount(supabase, user.id);
     setWorkoutCount(count);
-
-    try {
-      // 1. Fetch recent workouts for analysis (limit 100 for now)
-      const workouts = await getRecentWorkouts(supabase, user.id, 100);
-      // 2. Sync to local SQLite WASM instance
-      await syncWorkoutsToSqlite(workouts);
-      // 3. Run a test aggregation query
-      const totalSets = await runSQLiteTestQuery();
-      setDbTotalSets(totalSets);
-
-    } catch (e) {
-      console.error("SQLite initialization error:", e);
-    }
   }, [user.id, supabase]);
 
   useEffect(() => {
@@ -84,17 +70,6 @@ export function ProfileTab({ user, onSignOut }: ProfileTabProps) {
             {workoutCount}
           </p>
         </div>
-        
-        {dbTotalSets !== null && (
-          <div>
-            <p className="text-[14px] text-[var(--label-secondary)]">
-              Total Series (SQLite WASM)
-            </p>
-            <p className="text-[28px] font-bold text-[var(--accent)]">
-              {dbTotalSets}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Calendar */}
