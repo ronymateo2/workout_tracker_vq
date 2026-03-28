@@ -52,19 +52,33 @@ export function HomeTab() {
   useEffect(() => {
     if (!user) return;
 
-    if (syncState === 'pending_sync') {
-      void fetchFromSupabase().then(() => setSyncState('synced')); // eslint-disable-line react-hooks/set-state-in-effect
-      return;
-    }
+    // Helper to fetch data and update UI/Cache
+    const refreshData = async () => {
+      await fetchFromSupabase();
+      if (syncState === 'pending_sync') {
+        setSyncState('synced');
+      }
+    };
 
-    getRecentWorkoutsCache(user.id).then((cached) => {
+    const loadData = async () => {
+      // 1. If we know there's new data pending on Server, fetch it immediately
+      if (syncState === 'pending_sync') {
+        await refreshData();
+        return;
+      }
+
+      // 2. Otherwise, check our local cache first for instant loading
+      const cached = await getRecentWorkoutsCache(user.id);
       if (cached) {
         setWorkouts(cached);
         setLoading(false);
       } else {
-        void fetchFromSupabase();
+        // 3. First time app is loaded ever (no cache), fetch from Server
+        await refreshData();
       }
-    });
+    };
+
+    void loadData();
   }, [user?.id, syncState, setSyncState, fetchFromSupabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
