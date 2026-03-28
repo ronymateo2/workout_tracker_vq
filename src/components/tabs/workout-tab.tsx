@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Play, Dumbbell, MoreHorizontal, LoaderCircle } from "lucide-react";
+import { Plus, Play, Dumbbell, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useWorkoutSession } from "@/lib/workout-context";
 import { useData } from "@/lib/data-context";
@@ -109,9 +109,25 @@ export function WorkoutTab({ onResumeWorkout }: WorkoutTabProps) {
 
       {/* Routine list */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <LoaderCircle className="size-8 animate-spin text-[var(--muted)]" />
-        </div>
+        <>
+          <div className="mb-2 px-1">
+            <div className="h-[15.5px] w-16 rounded bg-[var(--fill-secondary)] animate-pulse" />
+          </div>
+          <div className="ios-list">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="ios-list-item">
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <div className="h-[20px] w-32 rounded bg-[var(--fill-tertiary)] animate-pulse" />
+                    <div className="mt-1.5 h-[16px] w-48 rounded bg-[var(--fill-tertiary)] animate-pulse" />
+                  </div>
+                  <div className="size-10 shrink-0 rounded-full bg-[var(--fill-tertiary)] animate-pulse" />
+                  <div className="mr-1 size-5 shrink-0 rounded bg-[var(--fill-tertiary)] animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       ) : routines.length === 0 ? (
         <EmptyState
           icon={<Dumbbell className="size-10" />}

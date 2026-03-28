@@ -60,7 +60,7 @@ export function ActiveWorkout({ onMinimize }: ActiveWorkoutProps) {
             <button
               type="button"
               onClick={() => setShowDiscardConfirm(true)}
-              className="text-[16px] text-[var(--destructive)] tap-highlight-transparent px-2 py-2 -mx-2 -my-2"
+              className="text-[16px] text-[var(--danger)] tap-highlight-transparent px-2 py-2 -mx-2 -my-2"
             >
               Descartar
             </button>
