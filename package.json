@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "postinstall": "cp node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm public/sqlite3.wasm"
   },
   "dependencies": {
